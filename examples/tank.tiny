@@ -1,0 +1,15 @@
+// Steady-state initialization: the initial state is COMPUTED, not given.
+model Tank
+  parameter Real A = 1.0    "cross section [m2]";
+  parameter Real k = 0.5    "outflow coefficient";
+  parameter Real qin = 0.3  "inflow [m3/s]";
+  Real h "level [m]";
+  Real q "outflow [m3/s]";
+initial equation
+  der(h) = 0;               // start in steady state
+equation
+  A * der(h) = qin - q;
+  q = k * sqrt(h);
+end Tank;
+
+experiment Tank(StopTime = 20.0, Interval = 0.01, plot = {h, q});

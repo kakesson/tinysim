@@ -1,0 +1,14 @@
+// A nonlinear pendulum in angular coordinates: index-1, two states.
+model Pendulum
+  parameter Real m = 1.0   "mass [kg]";
+  parameter Real L = 1.0   "length [m]";
+  parameter Real g = 9.81  "gravity [m/s2]";
+  parameter Real d = 0.1   "viscous damping [N.m.s]";
+  Real phi(start = 1.0) "angle from vertical [rad]";
+  Real w(start = 0.0)   "angular velocity [rad/s]";
+equation
+  der(phi) = w;
+  m * L * L * der(w) = -m * g * L * sin(phi) - d * w;
+end Pendulum;
+
+experiment Pendulum(StopTime = 10.0, Interval = 0.01, plot = {phi, w});

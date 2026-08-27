@@ -1,0 +1,89 @@
+// Two physical domains joined by one component: the classic DC motor.
+// Shows that the SAME connect() rules give Kirchhoff's laws on the electrical
+// side and Newton's third law on the mechanical side.
+
+connector Pin
+  Real v;
+  flow Real i;
+end Pin;
+
+connector Flange
+  Real phi      "angle [rad]";
+  flow Real tau "torque INTO the component [N.m]";
+end Flange;
+
+partial model OnePort
+  Pin p, n;
+  Real v, i;
+equation
+  v = p.v - n.v;
+  i = p.i;
+  p.i + n.i = 0;
+end OnePort;
+
+model Resistor
+  extends OnePort;
+  parameter Real R = 0.5;
+equation
+  v = R * i;
+end Resistor;
+
+model Inductor
+  extends OnePort;
+  parameter Real L = 0.05;
+equation
+  L * der(i) = v;
+end Inductor;
+
+model ConstantVoltage
+  extends OnePort;
+  parameter Real V = 24;
+equation
+  v = V;
+end ConstantVoltage;
+
+model Ground
+  Pin p;
+equation
+  p.v = 0;
+end Ground;
+
+model EMF "electro-mechanical energy conversion"
+  extends OnePort;
+  parameter Real k = 0.1 "torque constant [N.m/A]";
+  Flange flange;
+  Real w "shaft speed [rad/s]";
+equation
+  w = der(flange.phi);
+  v = k * w;              // back-EMF
+  flange.tau = -k * i;    // torque delivered to the shaft
+end EMF;
+
+model Inertia
+  parameter Real J = 0.02 "moment of inertia [kg.m2]";
+  parameter Real d = 0.01 "viscous friction [N.m.s]";
+  Flange flange;
+  Real phi(start = 0), w(start = 0);
+equation
+  phi = flange.phi;
+  der(phi) = w;
+  J * der(w) = flange.tau - d * w;
+end Inertia;
+
+model DCMotor
+  ConstantVoltage src(V = 24);
+  Resistor r(R = 0.5);
+  Inductor l(L = 0.05, i(start = 0));
+  EMF emf(k = 0.1);
+  Inertia load(J = 0.02, d = 0.01);
+  Ground gnd;
+equation
+  connect(src.p, r.p);
+  connect(r.n, l.p);
+  connect(l.n, emf.p);
+  connect(emf.n, src.n);
+  connect(src.n, gnd.p);
+  connect(emf.flange, load.flange);
+end DCMotor;
+
+experiment DCMotor(StopTime = 2.0, Interval = 0.001, plot = {load.w, l.i});

@@ -1,0 +1,15 @@
+// State events and state jumps: a ball bouncing on the floor.
+model BouncingBall
+  parameter Real g = 9.81 "gravity [m/s2]";
+  parameter Real e = 0.8  "coefficient of restitution [-]";
+  Real h(start = 1.0) "height [m]";
+  Real v(start = 0.0) "velocity [m/s]";
+equation
+  der(h) = v;
+  der(v) = -g;
+  when h < 0 then
+    reinit(v, -e * v);
+  end when;
+end BouncingBall;
+
+experiment BouncingBall(StopTime = 5.0, Interval = 0.001, plot = {h, v});

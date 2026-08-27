@@ -1,0 +1,69 @@
+// ---------------------------------------------------------------------------
+// A minimal electrical component library, in the style of Modelica.Electrical
+// ---------------------------------------------------------------------------
+
+connector Pin
+  Real v        "electrical potential [V]";
+  flow Real i   "current INTO the component [A]";
+end Pin;
+
+partial model OnePort "component with two pins, same current in and out"
+  Pin p, n;
+  Real v "voltage drop p.v - n.v [V]";
+  Real i "current from p to n [A]";
+equation
+  v = p.v - n.v;
+  i = p.i;
+  p.i + n.i = 0;
+end OnePort;
+
+model Resistor
+  extends OnePort;
+  parameter Real R = 100 "resistance [Ohm]";
+equation
+  v = R * i;
+end Resistor;
+
+model Capacitor
+  extends OnePort;
+  parameter Real C = 1e-3 "capacitance [F]";
+equation
+  C * der(v) = i;
+end Capacitor;
+
+model Inductor
+  extends OnePort;
+  parameter Real L = 1e-3 "inductance [H]";
+equation
+  L * der(i) = v;
+end Inductor;
+
+model ConstantVoltage
+  extends OnePort;
+  parameter Real V = 10 "source voltage [V]";
+equation
+  v = V;
+end ConstantVoltage;
+
+model Ground
+  Pin p;
+equation
+  p.v = 0;
+end Ground;
+
+// ---------------------------------------------------------------------------
+// A charging RC circuit: the "hello world" of acausal modeling
+// ---------------------------------------------------------------------------
+model RCCircuit
+  ConstantVoltage src(V = 10);
+  Resistor        r(R = 100);
+  Capacitor       c(C = 1e-3, v(start = 0));
+  Ground          gnd;
+equation
+  connect(src.p, r.p);
+  connect(r.n, c.p);
+  connect(c.n, src.n);
+  connect(src.n, gnd.p);
+end RCCircuit;
+
+experiment RCCircuit(StopTime = 1.0, Interval = 0.001, plot = {c.v, r.i});

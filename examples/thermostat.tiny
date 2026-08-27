@@ -1,0 +1,20 @@
+// A discrete variable switched by two when-clauses: hysteresis control.
+model Thermostat
+  parameter Real Tset = 20  "setpoint [degC]";
+  parameter Real band = 1   "hysteresis half-width [degC]";
+  parameter Real k = 0.1    "heat loss coefficient [1/s]";
+  parameter Real P = 5      "heater power [degC/s]";
+  parameter Real Tamb = 5   "ambient temperature [degC]";
+  Real T(start = 15)        "room temperature [degC]";
+  discrete Real on(start = 1) "heater state, 0 or 1";
+equation
+  der(T) = -k * (T - Tamb) + P * on;
+  when T > Tset + band then
+    on = 0;
+  end when;
+  when T < Tset - band then
+    on = 1;
+  end when;
+end Thermostat;
+
+experiment Thermostat(StopTime = 200.0, Interval = 0.1, plot = {T, on});
