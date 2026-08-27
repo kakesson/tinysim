@@ -1,0 +1,83 @@
+// ---------------------------------------------------------------------------
+// A NONLINEAR algebraic loop.
+//
+//   ramp --[ r1 ]--+--|>|--[ r2 ]-- ground
+//                  |
+//                 === c
+//                  |
+//                ground
+//
+// The capacitor voltage is a state, so the left half is easy.  The right half
+// is not: the diode current depends exponentially on the diode voltage, the
+// diode voltage depends on how much of it r2 takes, and that depends on the
+// current again.  Those two equations must be solved together, and no
+// rearrangement makes them explicit -- so the generated code contains a call
+// to a numerical root finder for that one block, and only for that block.
+// ---------------------------------------------------------------------------
+
+connector Pin
+  Real v;
+  flow Real i;
+end Pin;
+
+partial model OnePort
+  Pin p, n;
+  Real v, i;
+equation
+  v = p.v - n.v;
+  i = p.i;
+  p.i + n.i = 0;
+end OnePort;
+
+model Resistor
+  extends OnePort;
+  parameter Real R = 1000;
+equation
+  v = R * i;
+end Resistor;
+
+model Capacitor
+  extends OnePort;
+  parameter Real C = 1e-6;
+equation
+  C * der(v) = i;
+end Capacitor;
+
+model Diode "exponential (Shockley) diode"
+  extends OnePort;
+  parameter Real Isat = 1e-6 "saturation current [A]";
+  parameter Real Vt = 0.2    "thermal voltage [V], made large so the model is gentle";
+equation
+  i = Isat * (exp(v / Vt) - 1);
+end Diode;
+
+model RampVoltage "a source that ramps up, so the operating point moves"
+  extends OnePort;
+  parameter Real slope = 5 "[V/s]";
+equation
+  v = slope * time;
+end RampVoltage;
+
+model Ground
+  Pin p;
+equation
+  p.v = 0;
+end Ground;
+
+model DiodeCircuit
+  RampVoltage src(slope = 5);
+  Resistor r1(R = 100);
+  Resistor r2(R = 100);
+  // the start value is the first guess for the loop's root finder
+  Diode d(v(start = 0));
+  Capacitor c(C = 1e-6, v(start = 0));
+  Ground gnd;
+equation
+  connect(src.p, r1.p);
+  connect(r1.n, c.p);
+  connect(c.n, gnd.p);
+  connect(r1.n, d.p);
+  connect(d.n, r2.p);
+  connect(r2.n, gnd.p);
+  connect(src.n, gnd.p);
+end DiodeCircuit;

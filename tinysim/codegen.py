@@ -253,6 +253,27 @@ class CodeGenerator:
             "from scipy.optimize import fsolve",
             "",
             "",
+            "def _solve_block(residual, guess, block, unknowns, t):",
+            '    """',
+            "    Solve one algebraic block numerically.",
+            "",
+            "    An iterative solver needs a starting point, and a bad one can",
+            "    make it fail on a system that has a perfectly good solution --",
+            "    which is exactly why `start` values matter for the variables of",
+            "    an algebraic loop.  This tries the remembered guess first, then",
+            "    a fresh start from zero, and refuses to continue quietly if",
+            "    neither works.",
+            '    """',
+            "    for attempt in (guess, [0.0] * len(guess)):",
+            "        values, _, flag, message = fsolve(residual, attempt,",
+            "                                          full_output=True)",
+            "        if flag == 1:",
+            "            return values",
+            "    raise RuntimeError(",
+            "        'block %d (%s) did not converge at t = %g: %s'",
+            "        % (block, unknowns, t, message.strip()))",
+            "",
+            "",
         ]
 
     def _comment(self, name: str) -> str:
@@ -322,10 +343,7 @@ class CodeGenerator:
             f"    def _residual{position}(_u):",
             f"        {mangle(unknown)}, = _u",
             f"        return [{to_python(residual)}]",
-            f"    {mangle(unknown)}, = fsolve(_residual{position}, "
-            f"guess.get({position!r}, [{guess}]))",
-            f"    guess[{position!r}] = [{mangle(unknown)}]",
-        ], "newton")
+        ] + self._emit_root_find(position, [unknown], [guess]), "newton")
 
     def _emit_loop_block(self, residuals, symbols, unknowns, equations, position):
         """Several equations that must be solved together: an algebraic loop."""
@@ -350,15 +368,32 @@ class CodeGenerator:
             ], "linear system")
 
         names = ", ".join(mangle(u) for u in unknowns)
-        guesses = ", ".join(self._start_value(u) for u in unknowns)
         return ([
             f"    def _residual{position}(_u):",
             f"        {names} = _u",
             f"        return [" + ", ".join(to_python(r) for r in residuals) + "]",
-            f"    {names} = fsolve(_residual{position}, "
-            f"guess.get({position!r}, [{guesses}]))",
+        ] + self._emit_root_find(position, unknowns,
+                                 [self._start_value(u) for u in unknowns]),
+                "newton")
+
+    def _emit_root_find(self, position: int, unknowns: List[str],
+                        guesses: List[str]) -> List[str]:
+        """
+        Call the root finder, and *check that it worked*.
+
+        A silent non-convergence is the worst possible outcome: the simulation
+        would carry on with a meaningless number.  The generated code therefore
+        always inspects the solver's flag and stops with a message naming the
+        block and the model variables involved.
+        """
+        names = ", ".join(mangle(u) for u in unknowns)
+        comma = "," if len(unknowns) == 1 else ""
+        return [
+            f"    _guess{position} = guess.get({position!r}, [{', '.join(guesses)}])",
+            f"    {names}{comma} = _solve_block(_residual{position}, _guess{position},",
+            f"                             {position}, {', '.join(unknowns)!r}, t)",
             f"    guess[{position!r}] = [{names}]",
-        ], "newton")
+        ]
 
     def _start_value(self, unknown: str) -> str:
         """A starting guess for an iterative solve, taken from `start`."""
@@ -370,7 +405,7 @@ class CodeGenerator:
                 return repr(evaluate(variable.start, self.model.parameter_values))
             except EvaluationError:                          # pragma: no cover
                 pass
-        return "1.0"
+        return "0.0"        # the same default a Modelica tool would use
 
     # -- results -------------------------------------------------------------
 

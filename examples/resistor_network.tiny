@@ -1,0 +1,65 @@
+// ---------------------------------------------------------------------------
+// A resistor network whose node voltage cannot be computed one variable at a
+// time: the equations for the three resistor currents and the node voltage
+// depend on each other in a circle.  The BLT sorting finds that circle and
+// puts those equations in one block -- a LINEAR ALGEBRAIC LOOP, which the
+// generated code solves as a small matrix equation A*x = b.
+// ---------------------------------------------------------------------------
+
+connector Pin
+  Real v;
+  flow Real i;
+end Pin;
+
+partial model OnePort
+  Pin p, n;
+  Real v, i;
+equation
+  v = p.v - n.v;
+  i = p.i;
+  p.i + n.i = 0;
+end OnePort;
+
+model Resistor
+  extends OnePort;
+  parameter Real R = 100 "resistance [Ohm]";
+equation
+  v = R * i;
+end Resistor;
+
+model Capacitor
+  extends OnePort;
+  parameter Real C = 1e-6;
+equation
+  C * der(v) = i;
+end Capacitor;
+
+model ConstantVoltage
+  extends OnePort;
+  parameter Real V = 10;
+equation
+  v = V;
+end ConstantVoltage;
+
+model Ground
+  Pin p;
+equation
+  p.v = 0;
+end Ground;
+
+model ResistorNetwork
+  ConstantVoltage src(V = 10);
+  Resistor r1(R = 100);
+  Resistor r2(R = 220);
+  Resistor r3(R = 330);
+  Capacitor c(C = 1e-6, v(start = 0));
+  Ground gnd;
+equation
+  connect(src.p, r1.p);
+  connect(r1.n, r2.p);     // the node where the loop appears
+  connect(r1.n, r3.p);
+  connect(r2.n, gnd.p);
+  connect(r3.n, c.p);
+  connect(c.n, gnd.p);
+  connect(src.n, gnd.p);
+end ResistorNetwork;

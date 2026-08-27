@@ -19,6 +19,12 @@ and everything in this module is built on top of that:
 Because the integration restarts at every event, a simulation is really a
 sequence of continuous segments, which is exactly the picture of a hybrid
 system that students should take away.
+
+The default integrator is `Radau`, an implicit method that copes with the stiff
+systems physical models tend to produce.  It is also written in Python, so a
+model that raises an error mid-step (a nonlinear block that will not converge,
+say) reports it properly; the Fortran-based `LSODA` aborts the interpreter
+instead.
 """
 
 from dataclasses import dataclass, field
@@ -118,7 +124,7 @@ class Simulator:
     # -- the simulation loop -------------------------------------------------
 
     def simulate(self, stop: float = 1.0, start: float = 0.0,
-                 points: int = 1001, method: str = "LSODA",
+                 points: int = 1001, method: str = "Radau",
                  rtol: float = 1e-6, atol: float = 1e-8,
                  max_events: int = 10000,
                  minimum_event_separation: float = 1e-12) -> SimulationResult:

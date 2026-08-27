@@ -41,7 +41,8 @@ from .simulator import Event, SimulationResult, Simulator
 __version__ = "0.1.0"
 
 __all__ = [
-    "load", "load_source", "compile_model", "simulate", "plot", "explain",
+    "load", "load_source", "compile_model", "choose_model", "simulate", "plot",
+    "explain",
     "CompiledModel", "SimulationResult", "Event",
     "ModelError", "StructuralError", "TinySimSyntaxError",
 ]
@@ -131,18 +132,42 @@ def load_source(source: str, model_name: Optional[str] = None,
                          **options)
 
 
-def _choose_model(program: Program, model_name: Optional[str], where: str) -> str:
+def choose_model(program: Program, model_name: Optional[str] = None,
+                 where: str = "<program>") -> str:
+    """
+    Decide which model of a file to compile.
+
+    Example files usually hold a small component library followed by the system
+    built from it, so the model that nobody else uses as a component or as a
+    base class is the one that was meant to be simulated.  When that is
+    ambiguous, say so rather than guess.
+    """
     if model_name is not None:
         return model_name
-    candidates = [name for name, definition in program.classes.items()
-                  if definition.kind == "model" and not definition.partial]
-    if len(candidates) == 1:
-        return candidates[0]
+
+    models = [name for name, definition in program.classes.items()
+              if definition.kind == "model" and not definition.partial]
+    if not models:
+        raise ModelError(f"{where} defines no model that can be simulated")
+    if len(models) == 1:
+        return models[0]
+
+    used_as_component = {declaration.type_name
+                         for definition in program.classes.values()
+                         for declaration in definition.decls}
+    used_as_base = {base for definition in program.classes.values()
+                    for base in definition.extends}
+    roots = [name for name in models
+             if name not in used_as_component and name not in used_as_base]
+    if len(roots) == 1:
+        return roots[0]
     raise ModelError(
-        f"{where} defines {len(candidates)} models "
-        f"({', '.join(candidates) or 'none'}); say which one to use, for "
-        f"example load(path, {candidates[0]!r})" if candidates else
-        f"{where} defines no simulatable model")
+        f"{where} defines several models that could be simulated "
+        f"({', '.join(roots or models)}); say which one to use, for example "
+        f"load(path, {(roots or models)[0]!r})")
+
+
+_choose_model = choose_model
 
 
 def simulate(model, stop: float = 1.0, **options) -> SimulationResult:

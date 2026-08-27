@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tinysim"
+version = "0.1.0"
+description = "A tiny equation-based, acausal modeling language for teaching"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "Knut Akesson"}]
+keywords = ["modelica", "acausal", "equation-based", "simulation", "teaching"]
+classifiers = [
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "numpy>=1.20",
+    "scipy>=1.7",
+    "sympy>=1.9",
+    "matplotlib>=3.4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+tinysim = "tinysim.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/kakesson/tinysim"
+
+[tool.setuptools]
+packages = ["tinysim"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

@@ -1,0 +1,26 @@
+// ---------------------------------------------------------------------------
+// The standard example of a HIGH INDEX model, kept here on purpose because it
+// does NOT work: TinySim detects the problem and explains it.
+//
+// The pendulum is written in Cartesian coordinates, so x and y look like two
+// independent states -- but they are not: the rod forces x^2 + y^2 = L^2 at
+// every instant.  The equations are a differential-algebraic system of index
+// 3, and no amount of rearranging turns them into an ODE.  Real tools apply
+// Pantelides' index-reduction algorithm here; TinySim stops and says why.
+// ---------------------------------------------------------------------------
+
+model CartesianPendulum
+  parameter Real m = 1.0  "mass [kg]";
+  parameter Real L = 1.0  "rod length [m]";
+  parameter Real g = 9.81 "gravity [m/s2]";
+  Real x(start = 1.0) "horizontal position [m]";
+  Real y(start = 0.0) "vertical position [m]";
+  Real vx(start = 0.0), vy(start = 0.0) "velocity [m/s]";
+  Real F "force in the rod [N]";
+equation
+  der(x) = vx;
+  der(y) = vy;
+  m * der(vx) = -F * x / L;
+  m * der(vy) = -F * y / L - m * g;
+  x ^ 2 + y ^ 2 = L ^ 2;      // the constraint that makes the index high
+end CartesianPendulum;
