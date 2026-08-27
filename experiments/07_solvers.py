@@ -11,9 +11,10 @@ Two questions this answers by measurement rather than by assertion:
    The slopes on a log-log plot are 1, 2 and 4 -- the order of each method.
 
 2. What does locating an event exactly buy? The bouncing ball is simulated
-   three times: finding the crossing instant, noticing it only at the end of
-   the step, and ignoring events altogether. The first is right, the second is
-   late and slowly loses energy, the third falls through the floor.
+   three times -- finding the crossing instant, noticing it only at the end of
+   the step, and ignoring events altogether -- and the three answers are
+   summarised in a table here. Experiment 8 takes that comparison apart
+   properly, with the crossing function drawn.
 """
 
 import math
@@ -32,8 +33,8 @@ FIGURES.mkdir(exist_ok=True)
 
 page = htmlreport.start(
     __file__,
-    title="Experiment 7 - fixed step, variable step, and finding events",
-    subtitle="What each solver choice costs, measured on two models with known answers")
+    title="Experiment 7 - fixed step against variable step",
+    subtitle="What a step size buys and costs, measured against a known solution")
 
 # ---------------------------------------------------------------------------
 # 1. Accuracy against step size, on a model whose answer we know exactly
@@ -88,74 +89,40 @@ page.add_figure(figure, "Error against step size, log-log. The grey lines are "
                         "slopes 1, 2 and 4 for comparison.")
 
 # ---------------------------------------------------------------------------
-# 2. What locating an event is worth
+# 2. A fixed step still has to cope with events -- summarised here, taken apart
+#    in experiment 8
 # ---------------------------------------------------------------------------
 ball = tinysim.load(EXAMPLES / "bouncing_ball.tiny", "BouncingBall")
 FIRST_BOUNCE = math.sqrt(2 * 1.0 / 9.81)
 
-runs = {
-    "locate": tinysim.simulate(ball, stop=3.0, points=3001,
-                               method="rk4", step=1e-3, events="locate"),
-    "step": tinysim.simulate(ball, stop=3.0, points=3001,
-                             method="rk4", step=1e-3, events="step"),
-    "off": tinysim.simulate(ball, stop=3.0, points=3001,
-                            method="rk4", step=1e-3, events="off"),
-}
+runs = {policy: tinysim.simulate(ball, stop=3.0, method="rk4", step=1e-3,
+                                 events=policy)
+        for policy in ("locate", "step", "off")}
 
 print(f"\n\nThe bouncing ball, rk4 with a 1 ms step. "
       f"The first bounce is at sqrt(2h/g) = {FIRST_BOUNCE:.6f} s.\n")
 print(f"  {'events=':<10}{'bounces':>9}{'first at':>12}{'late by':>12}"
       f"{'deepest h':>12}{'h at 3 s':>11}")
+summary = []
 for policy, result in runs.items():
     first = result.events[0].time if result.events else float("nan")
     print(f"  {policy:<10}{len(result.events):9d}{first:12.6f}"
           f"{first - FIRST_BOUNCE:12.2e}{result['h'].min():12.2e}"
           f"{result['h'][-1]:11.4f}")
+    summary.append(f"events={policy:<8} {len(result.events)} bounces, "
+                   f"first at {first:.6f} s "
+                   f"(late by {first - FIRST_BOUNCE:.1e}), "
+                   f"deepest h {result['h'].min():.2e} m, "
+                   f"h at 3 s {result['h'][-1]:.4f} m")
+print("\nExperiment 8 draws the crossing function and takes this apart.")
 
-figure, (whole, zoom) = plt.subplots(1, 2, figsize=(12, 4.5))
-# `locate` and `step` almost coincide at this scale, so draw them differently.
-styles = {"locate": dict(linewidth=2.6, alpha=0.45),
-          "step": dict(linewidth=1.2, linestyle="--"),
-          "off": dict(linewidth=1.6)}
-for policy, result in runs.items():
-    whole.plot(result.time, result["h"], label=f"events={policy}", **styles[policy])
-whole.axhline(0, color="grey", linewidth=0.8)
-whole.set_ylim(-0.6, 1.1)
-whole.set_xlabel("time [s]")
-whole.set_ylabel("height h [m]")
-whole.set_title("Ignoring events: the ball leaves through the floor")
-whole.legend()
-whole.grid(alpha=0.3)
-
-for policy in ("locate", "step"):
-    result = runs[policy]
-    window = (result.time > FIRST_BOUNCE - 0.004) & (result.time < FIRST_BOUNCE + 0.004)
-    zoom.plot(result.time[window], result["h"][window], "o-", markersize=3,
-              label=f"events={policy}")
-zoom.axhline(0, color="grey", linewidth=0.8)
-zoom.axvline(FIRST_BOUNCE, color="crimson", linestyle=":", linewidth=0.9,
-             label="sqrt(2h/g)")
-zoom.set_xlabel("time [s]")
-zoom.set_title("The first bounce, magnified")
-zoom.legend()
-zoom.grid(alpha=0.3)
-figure.tight_layout()
-figure.savefig(FIGURES / "solver_events.png", dpi=150)
-
-page.add_text("""
-    The same model, the same integrator and the same step, three times over.
-    Locating the crossing stops the integration at the instant the ball reaches
-    the floor. Detecting it at the end of the step applies the bounce once the
-    ball is already below the floor, so it leaves with a velocity it should
-    never have had - and the error repeats at every bounce. Ignoring events
-    means the when-clause never fires at all.
+page.add_text(f"""
+    A step size is only half the choice. The other half is what the simulator
+    does when a when-condition changes during a step. Here is the bouncing ball
+    with the same integrator and the same 1 ms step under all three policies -
+    the exact first bounce is at sqrt(2h/g) = {FIRST_BOUNCE:.6f} s. Experiment 8
+    draws the crossing function itself and shows where each answer comes from.
     """)
-page.add_source(EXAMPLES / "bouncing_ball.tiny", title="The model - BouncingBall")
-page.add_model(ball, title="How BouncingBall was compiled")
-page.add_figure(figure, "Left: the three policies over three seconds. Right: "
-                        "the first bounce magnified, with the analytic bounce "
-                        "time marked.")
-for policy, result in runs.items():
-    page.add_result(result, ["h", "v"], title=f"The simulation - events={policy}")
+page.add_code("\n".join(summary), title="The same model under three event policies")
 
 page.finish()

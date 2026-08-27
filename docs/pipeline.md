@@ -320,7 +320,10 @@ On the bouncing ball with a 1 ms RK4 step, the first bounce should be at
 | `step` | 0.452000 | 4.8e-4 s | -2.1e-3 m |
 | `off` | never | -- | it keeps falling (-43 m at t = 3 s) |
 
-`experiments/07_solvers.py` produces that table and the plots behind it.
+`experiments/07_solvers.py` produces that table; `experiments/08_zero_crossing.py`
+draws the crossing function itself, step by step, and follows the consequences
+over six bounces -- the late bounce keeps 0.634, 0.637, 0.630, 0.627, 0.624 of
+its energy where the model says every bounce keeps exactly `e^2 = 0.64`.
 
 Two details decide whether event location works at all:
 

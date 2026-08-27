@@ -182,3 +182,30 @@ def test_an_unknown_event_policy_is_reported():
     model = tinysim.load_source(RC_CIRCUIT, "RC")
     with pytest.raises(ValueError, match="events must be one of"):
         tinysim.simulate(model, stop=1.0, events="maybe")
+
+
+def test_a_late_bounce_breaks_the_model_s_own_energy_law(examples):
+    """
+    The illustration in `experiments/08_zero_crossing.py`, as an assertion.
+
+    A bounce with restitution e leaves the ball with exactly e**2 of its
+    energy. Locating the crossing reproduces that at every bounce; applying
+    the bounce a step late does not, and the error grows bounce by bounce
+    because each one starts from a state that is already wrong.
+    """
+    model = tinysim.load(examples / "bouncing_ball.tiny", "BouncingBall")
+    gravity, restitution = 9.81, 0.8
+
+    def energy_kept(policy):
+        result = tinysim.simulate(model, stop=3.0, method="rk4", step=5e-3,
+                                  events=policy)
+        energy = gravity * result["h"] + 0.5 * result["v"] ** 2
+        after = [energy[np.argmin(np.abs(result.time - (event.time + 1e-9)))]
+                 for event in result.events]
+        return [after[i + 1] / after[i] for i in range(len(after) - 1)]
+
+    located = energy_kept("locate")
+    late = energy_kept("step")
+    assert located == pytest.approx([restitution ** 2] * len(located), abs=1e-6)
+    assert all(value < restitution ** 2 - 1e-3 for value in late)
+    assert late[-1] < late[0]                    # and it gets worse

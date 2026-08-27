@@ -85,7 +85,11 @@ tinysim.simulate(model, stop=1.0, events="off")                # when-clauses ne
 written out in `integrators.py` (`euler`, `heun`, `rk4`), and `events` is
 `"locate"`, `"step"` or `"off"`. Simulate the bouncing ball with `events="off"`
 and it falls through the floor; with `events="step"` it bounces late, from
-below the floor. That comparison is `experiments/07_solvers.py`.
+below the floor, and keeps the wrong fraction of its energy at every bounce.
+`experiments/08_zero_crossing.py` draws the crossing function itself and shows
+where each answer comes from.
+
+![Zero-crossing detection on the bouncing ball](figures/zero_crossing_detail.png)
 
 From the command line:
 
@@ -113,7 +117,8 @@ tinysim run   examples/bouncing_ball.tiny --stop 3 --events off
 | Initialization as a system of its own | `examples/tank.tiny` |
 | Events, state jumps, discrete variables | `examples/bouncing_ball.tiny`, `examples/thermostat.tiny` |
 | High index detected and explained, not solved | `examples/pendulum_cartesian.tiny` |
-| Fixed vs variable step, and what locating an event is worth | `experiments/07_solvers.py` |
+| Fixed step against variable step, and the order of a method | `experiments/07_solvers.py` |
+| With and without zero-crossing detection | `experiments/08_zero_crossing.py` |
 
 ## Read it in this order
 
@@ -130,7 +135,8 @@ tinysim run   examples/bouncing_ball.tiny --stop 3 --events off
    .venv/bin/python experiments/04_initialization.py        # steady-state start-up
    .venv/bin/python experiments/05_when_it_does_not_work.py # the error messages
    .venv/bin/python experiments/06_dc_motor.py              # two domains, one rule
-   .venv/bin/python experiments/07_solvers.py               # step size and event handling
+   .venv/bin/python experiments/07_solvers.py               # fixed against variable step
+   .venv/bin/python experiments/08_zero_crossing.py         # with and without event detection
    ```
 
    Every experiment also takes `--html`, which writes a standalone page
