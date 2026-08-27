@@ -66,4 +66,3 @@ equation
   connect(src.n, gnd.p);
 end RCCircuit;
 
-experiment RCCircuit(StopTime = 1.0, Interval = 0.001, plot = {c.v, r.i});

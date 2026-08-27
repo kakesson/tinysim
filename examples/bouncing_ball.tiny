@@ -9,7 +9,6 @@ equation
   der(v) = -g;
   when h < 0 then
     reinit(v, -e * v);
-  end when;
+  end;
 end BouncingBall;
 
-experiment BouncingBall(StopTime = 5.0, Interval = 0.001, plot = {h, v});

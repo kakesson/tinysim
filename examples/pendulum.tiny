@@ -11,4 +11,3 @@ equation
   m * L * L * der(w) = -m * g * L * sin(phi) - d * w;
 end Pendulum;
 
-experiment Pendulum(StopTime = 10.0, Interval = 0.01, plot = {phi, w});

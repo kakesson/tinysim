@@ -86,4 +86,3 @@ equation
   connect(emf.flange, load.flange);
 end DCMotor;
 
-experiment DCMotor(StopTime = 2.0, Interval = 0.001, plot = {load.w, l.i});

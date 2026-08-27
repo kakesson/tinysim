@@ -11,10 +11,9 @@ equation
   der(T) = -k * (T - Tamb) + P * on;
   when T > Tset + band then
     on = 0;
-  end when;
+  end;
   when T < Tset - band then
     on = 1;
-  end when;
+  end;
 end Thermostat;
 
-experiment Thermostat(StopTime = 200.0, Interval = 0.1, plot = {T, on});

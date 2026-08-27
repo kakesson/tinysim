@@ -27,6 +27,10 @@ Modelica files, since TinySim is only a subset).
 * Numbers: `1`, `1.0`, `1e-3`, `9.81`.
 * Description strings follow a declaration: `parameter Real R = 100 "resistance [Ohm]";`
 * Whitespace and newlines are insignificant (unlike Python).
+* Every block closes with `end`, never with a repeated keyword: a `when` block
+  ends with `end;`, not `end when;`. A `model` or `connector` may repeat its own
+  name for readability — `end Resistor;` — and the examples do, but a bare
+  `end;` is equally valid.
 
 ## 2. Types and variability
 
@@ -53,13 +57,11 @@ and, inside a connector, an optional *connection prefix*:
 Declarations may carry attribute modifiers:
 
 ```modelica
-Real v(start = 0, fixed = true) "capacitor voltage";
+Real v(start = 0) "capacitor voltage";
 ```
 
-Supported attributes: `start` (initial guess / initial value), `fixed`
-(whether `start` is an initial *equation*, default `true` for states,
-`false` for algebraic variables), `min`, `max` (used for reporting only),
-`nominal` (used for reporting only).
+Supported attributes: `start` (the initial value of a state, or the initial
+guess for an algebraic variable), `min`, `max` and `nominal` (reporting only).
 
 ## 3. Connectors
 
@@ -220,7 +222,7 @@ equation
   der(v) = -g;
   when h < 0 then           // state event, located by the solver's root finder
     reinit(v, -e * v);
-  end when;
+  end;
 end BouncingBall;
 ```
 
@@ -231,8 +233,8 @@ model Thermostat
   discrete Real on(start = 1);
 equation
   der(T) = -k * (T - Tamb) + P * on;
-  when T > Tset + band then on = 0; end when;
-  when T < Tset - band then on = 1; end when;
+  when T > Tset + band then on = 0; end;
+  when T < Tset - band then on = 1; end;
 end Thermostat;
 ```
 
@@ -245,35 +247,35 @@ integration restarts from the updated state.
 `when time > 2.0 then ...` is recognized as a *time event* and scheduled
 exactly instead of being searched for.
 
-## 7. Experiment settings
+## 7. Running an experiment
 
-Simulation settings may live in the file, and can be overridden from Python:
-
-```modelica
-experiment Circuit(StopTime = 1.0, Interval = 0.001, Tolerance = 1e-8,
-                   plot = {c.v, r.i});
-```
+The language describes *models only*. It has no construct for stop time, step
+size, solver settings or plotting: an experiment is ordinary Python code, where
+the results already live.
 
 ```python
 from tinysim import load, simulate, plot
-model = load("examples/circuit.tiny", "Circuit")
+
+model = load("examples/electrical.tiny", "RCCircuit")
 res   = simulate(model, stop=1.0)
 plot(res, ["c.v", "r.i"])
 ```
+
+This is a deliberate separation: the `.tiny` file says what is *true* about the
+system, the Python script says what you want to *do* with it.
 
 ## 8. Grammar (EBNF)
 
 ```ebnf
 program        = { definition } ;
-definition     = connector_def | model_def | experiment_def ;
+definition     = connector_def | model_def ;
 
-connector_def  = "connector" IDENT { var_decl } "end" IDENT ";" ;
+connector_def  = "connector" IDENT { var_decl } "end" [ IDENT ] ";" ;
 model_def      = [ "partial" ] "model" IDENT
                  { extends_clause | var_decl | comp_decl }
                  [ "initial" "equation" { equation } ]
                  [ "equation" { equation } ]
-                 "end" IDENT ";" ;
-experiment_def = "experiment" IDENT "(" [ setting { "," setting } ] ")" ";" ;
+                 "end" [ IDENT ] ";" ;
 
 extends_clause = "extends" IDENT [ modification ] ";" ;
 var_decl       = { prefix } "Real" decl_item { "," decl_item } [ STRING ] ";" ;
@@ -286,7 +288,7 @@ mod_item       = IDENT ( "=" expr | modification ) ;
 equation       = connect_eq | when_eq | simple_eq ;
 simple_eq      = expr "=" expr ";" ;
 connect_eq     = "connect" "(" comp_ref "," comp_ref ")" ";" ;
-when_eq        = "when" expr "then" { when_stmt } "end" "when" ";" ;
+when_eq        = "when" expr "then" { when_stmt } "end" ";" ;
 when_stmt      = comp_ref "=" expr ";" | "reinit" "(" comp_ref "," expr ")" ";" ;
 
 expr           = if_expr | logic_expr ;
@@ -299,7 +301,6 @@ factor         = primary [ "^" factor ] ;
 primary        = NUMBER | comp_ref | func_call | "(" expr ")" | "not" primary ;
 func_call      = IDENT "(" [ expr { "," expr } ] ")" ;
 comp_ref       = IDENT { "." IDENT } ;
-setting        = IDENT "=" ( expr | "{" comp_ref { "," comp_ref } "}" ) ;
 ```
 
 ## 9. Deliberately *not* in the language
