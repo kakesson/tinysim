@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Experiment 5 - the errors are part of the teaching material</title>
+<style>
+:root {
+  --page: #ffffff;      --ink: #1b1c1d;     --muted: #5d6470;
+  --rule: #dfe3e8;      --panel: #f6f8fa;   --accent: #0b62c4;
+  --loop: #c62828;      --good: #1b7a43;    --code: #f6f8fa;
+  --hit: #d6e6fb;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #14161a;    --ink: #e6e8ea;     --muted: #9aa3ad;
+    --rule: #2b3038;    --panel: #1b1e24;   --accent: #61a5f2;
+    --loop: #ef5b5b;    --good: #58c98a;    --code: #1b1e24;
+    --hit: #24374d;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 0 1.5rem 5rem; background: var(--page); color: var(--ink);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+main { max-width: 60rem; margin: 0 auto; }
+header { border-bottom: 2px solid var(--rule); margin: 0 0 2rem; padding: 2.5rem 0 1.5rem; }
+header h1 { margin: 0 0 .3rem; font-size: 1.9rem; letter-spacing: -.01em; }
+header p { margin: 0; color: var(--muted); }
+h2 {
+  margin: 3rem 0 .8rem; padding-bottom: .35rem; font-size: 1.3rem;
+  border-bottom: 1px solid var(--rule);
+}
+h3 { margin: 1.8rem 0 .5rem; font-size: 1.05rem; color: var(--muted);
+     text-transform: uppercase; letter-spacing: .06em; }
+p { margin: .8rem 0; }
+a { color: var(--accent); }
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+pre {
+  background: var(--code); border: 1px solid var(--rule); border-radius: 6px;
+  padding: .9rem 1rem; overflow-x: auto; font-size: .82rem; line-height: 1.5;
+}
+nav.toc { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+          padding: 1rem 1.2rem; }
+nav.toc ol { margin: 0; padding-left: 1.2rem; }
+nav.toc li { margin: .15rem 0; }
+table { border-collapse: collapse; width: 100%; font-size: .87rem; margin: .8rem 0; }
+th, td { text-align: left; padding: .32rem .6rem; border-bottom: 1px solid var(--rule); }
+th { color: var(--muted); font-weight: 600; }
+td.num, th.num { text-align: right; color: var(--muted); width: 3rem; }
+td.eq { font-family: ui-monospace, Menlo, Consolas, monospace; }
+td.note { color: var(--muted); font-size: .8rem; }
+.counts { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1rem 0; }
+.count { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+         padding: .5rem .8rem; min-width: 7rem; }
+.count b { display: block; font-size: 1.35rem; line-height: 1.2; }
+.count span { color: var(--muted); font-size: .78rem; }
+.grid { overflow-x: auto; margin: 1rem 0; }
+table.incidence { width: auto; border-collapse: collapse; font-size: .78rem; }
+table.incidence th, table.incidence td { border: 1px solid var(--rule); padding: 0; text-align: center; }
+table.incidence td { width: 1.6rem; height: 1.6rem; }
+table.incidence th.col { writing-mode: vertical-rl; transform: rotate(180deg);
+                         padding: .35rem .1rem; white-space: nowrap; font-weight: 500; }
+table.incidence th.row { padding: 0 .5rem; white-space: nowrap; font-weight: 500; }
+td.hit { background: var(--hit); }
+td.matched { background: var(--accent); color: var(--page); font-weight: 700; }
+td.inloop { outline: 2px solid var(--loop); outline-offset: -2px; }
+.legend { color: var(--muted); font-size: .8rem; }
+.block { border-left: 3px solid var(--rule); padding: .1rem 0 .1rem .8rem; margin: .6rem 0; }
+.block.loop { border-left-color: var(--loop); }
+.block .head { font-weight: 600; }
+.block .eq { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .82rem;
+             color: var(--muted); }
+figure { margin: 1.5rem 0; }
+figure img { max-width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 6px;
+             background: #fff; }
+figcaption { color: var(--muted); font-size: .85rem; margin-top: .4rem; }
+.error { border-left: 3px solid var(--loop); background: var(--panel);
+         padding: .8rem 1rem; border-radius: 0 6px 6px 0; }
+.error pre { background: transparent; border: none; padding: 0; }
+footer { margin-top: 4rem; padding-top: 1rem; border-top: 1px solid var(--rule);
+         color: var(--muted); font-size: .82rem; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Experiment 5 - the errors are part of the teaching material</h1>
+  <p>Four models a tool must reject, and what it should say about each</p>
+</header>
+<nav class="toc"><ol><li><a href="#s1">An unbalanced model (three unknowns, two equations)</a></li><li><a href="#s2">What TinySim says about it</a></li><li><a href="#s3">A model that contradicts itself</a></li><li><a href="#s4">What TinySim says about it</a></li><li><a href="#s5">A typo in a variable name</a></li><li><a href="#s6">What TinySim says about it</a></li><li><a href="#s7">A high-index model - the pendulum in Cartesian coordinates  --  pendulum_cartesian.tiny</a></li><li><a href="#s8">Why the Cartesian pendulum cannot be simulated</a></li><li><a href="#s9">The same pendulum, in an angle  --  pendulum.tiny</a></li><li><a href="#s10">How the angular pendulum was compiled</a></li><li><a href="#s11">The simulation</a></li><li><a href="#s12">The experiment script</a></li></ol></nav>
+<p>A modeling tool spends much of its time telling people that what they wrote cannot be simulated. The useful message names the offending equation and says what to do; the last case below is the interesting one, because the model is not wrong at all - it is simply of an index that no rearrangement can lower.</p><h2 id="s1">An unbalanced model (three unknowns, two equations)</h2><pre><code>model Unbalanced
+          Real x, y, z;
+        equation
+          x = 1;
+          y = 2 * x;
+        end Unbalanced;</code></pre><h2 id="s2">What TinySim says about it</h2><div class="error"><pre>model 'Unbalanced' has 2 equations but 3 continuous variables (too few equations: every unknown needs an equation of its own)</pre></div><h2 id="s3">A model that contradicts itself</h2><pre><code>model Contradiction
+          Real x, y;
+        equation
+          x = 1;
+          x = 2;
+        end Contradiction;</code></pre><h2 id="s4">What TinySim says about it</h2><div class="error"><pre>the model contradicts itself: these equations cannot all hold.
+    eq 1: 1 = 2      [Contradiction]</pre></div><h3>The stages that did succeed</h3><p>Every component has been expanded into its own variables and equations, with dotted names, and every <code>connect</code> has become real equations: potential variables equal, flow variables summing to zero.</p><h3>The flat model</h3><table><tr><th class='num'>#</th><th>equation</th><th>where it came from</th></tr><tr><td class='num'>1</td><td class='eq'>x = 1</td><td class='note'>Contradiction</td></tr><tr><td class='num'>2</td><td class='eq'>x = 2</td><td class='note'>Contradiction</td></tr></table><h3>Variables</h3><p>A variable that appears inside <code>der(...)</code> is a <b>state</b>: during simulation the integrator supplies its value, so the unknown in its place is its derivative.</p><table><tr><th>variable</th><th>kind</th><th>start / value</th><th>description</th></tr><tr><td class='mono'>y</td><td>algebraic</td><td class='mono'></td><td class='note'></td></tr></table><p class='legend'>Unknowns of the simulation problem: <span class='mono'>-</span></p><h2 id="s5">A typo in a variable name</h2><pre><code>model Typo
+          Real x;
+        equation
+          der(x) = -y;
+        end Typo;</code></pre><h2 id="s6">What TinySim says about it</h2><div class="error"><pre>der(x) = -y: unknown variable 'y'</pre></div><h2 id="s7">A high-index model - the pendulum in Cartesian coordinates  --  pendulum_cartesian.tiny</h2><pre><code>// ---------------------------------------------------------------------------
+// The standard example of a HIGH INDEX model, kept here on purpose because it
+// does NOT work: TinySim detects the problem and explains it.
+//
+// The pendulum is written in Cartesian coordinates, so x and y look like two
+// independent states -- but they are not: the rod forces x^2 + y^2 = L^2 at
+// every instant.  The equations are a differential-algebraic system of index
+// 3, and no amount of rearranging turns them into an ODE.  Real tools apply
+// Pantelides' index-reduction algorithm here; TinySim stops and says why.
+// ---------------------------------------------------------------------------
+
+model CartesianPendulum
+  parameter Real m = 1.0  "mass [kg]";
+  parameter Real L = 1.0  "rod length [m]";
+  parameter Real g = 9.81 "gravity [m/s2]";
+  Real x(start = 1.0) "horizontal position [m]";
+  Real y(start = 0.0) "vertical position [m]";
+  Real vx(start = 0.0), vy(start = 0.0) "velocity [m/s]";
+  Real F "force in the rod [N]";
+equation
+  der(x) = vx;
+  der(y) = vy;
+  m * der(vx) = -F * x / L;
+  m * der(vy) = -F * y / L - m * g;
+  x ^ 2 + y ^ 2 = L ^ 2;      // the constraint that makes the index high
+end CartesianPendulum;
+</code></pre><h2 id="s8">Why the Cartesian pendulum cannot be simulated</h2><div class="error"><pre>the model is structurally singular: there is no way to give every equation an unknown of its own.
+
+Equations left without an unknown to compute:
+    eq 5: x^2 + y^2 = L^2      [CartesianPendulum]
+
+This usually means the differential index of the model is higher than 1: the
+state variables are not independent, but tied together by a constraint. A model
+like a pendulum in Cartesian coordinates is the standard example -- x and y are
+states, yet x^2 + y^2 = L^2 must hold at all times.
+
+Real tools handle this by *index reduction*: Pantelides' algorithm finds the
+constraints that must be differentiated, differentiates them, and dummy-derivative
+selection then picks which variables stay states. TinySim deliberately stops here
+instead, so that the failure -- and the reason index reduction exists -- is visible.
+
+If the model is not meant to be high index, look for a variable that two equations
+are both trying to compute, or one that no equation computes at all.</pre></div><h3>The stages that did succeed</h3><p>Every component has been expanded into its own variables and equations, with dotted names, and every <code>connect</code> has become real equations: potential variables equal, flow variables summing to zero.</p><h3>The flat model</h3><table><tr><th class='num'>#</th><th>equation</th><th>where it came from</th></tr><tr><td class='num'>1</td><td class='eq'>der(x) = vx</td><td class='note'>CartesianPendulum</td></tr><tr><td class='num'>2</td><td class='eq'>der(y) = vy</td><td class='note'>CartesianPendulum</td></tr><tr><td class='num'>3</td><td class='eq'>m * der(vx) = -(F * x / L)</td><td class='note'>CartesianPendulum</td></tr><tr><td class='num'>4</td><td class='eq'>m * der(vy) = -(F * y / L) - m * g</td><td class='note'>CartesianPendulum</td></tr><tr><td class='num'>5</td><td class='eq'>x^2 + y^2 = L^2</td><td class='note'>CartesianPendulum</td></tr></table><h3>Variables</h3><p>A variable that appears inside <code>der(...)</code> is a <b>state</b>: during simulation the integrator supplies its value, so the unknown in its place is its derivative.</p><table><tr><th>variable</th><th>kind</th><th>start / value</th><th>description</th></tr><tr><td class='mono'>m</td><td>parameter</td><td class='mono'>1</td><td class='note'>mass [kg]</td></tr><tr><td class='mono'>L</td><td>parameter</td><td class='mono'>1</td><td class='note'>rod length [m]</td></tr><tr><td class='mono'>g</td><td>parameter</td><td class='mono'>9.81</td><td class='note'>gravity [m/s2]</td></tr><tr><td class='mono'>x</td><td>state</td><td class='mono'>1</td><td class='note'>horizontal position [m]</td></tr><tr><td class='mono'>y</td><td>state</td><td class='mono'>0</td><td class='note'>vertical position [m]</td></tr><tr><td class='mono'>vx</td><td>state</td><td class='mono'>0</td><td class='note'>velocity [m/s]</td></tr><tr><td class='mono'>vy</td><td>state</td><td class='mono'>0</td><td class='note'>velocity [m/s]</td></tr><tr><td class='mono'>F</td><td>algebraic</td><td class='mono'></td><td class='note'>force in the rod [N]</td></tr></table><p class='legend'>Unknowns of the simulation problem: <span class='mono'>-</span></p><p>The same pendulum in angular coordinates has no constraint at all: the rod length is built into the coordinates rather than imposed on them. It needs none of the machinery real tools spend on index reduction, which is the practical lesson - choosing coordinates is part of modeling.</p><h2 id="s9">The same pendulum, in an angle  --  pendulum.tiny</h2><pre><code>// A nonlinear pendulum in angular coordinates: index-1, two states.
+model Pendulum
+  parameter Real m = 1.0   "mass [kg]";
+  parameter Real L = 1.0   "length [m]";
+  parameter Real g = 9.81  "gravity [m/s2]";
+  parameter Real d = 0.1   "viscous damping [N.m.s]";
+  Real phi(start = 1.0) "angle from vertical [rad]";
+  Real w(start = 0.0)   "angular velocity [rad/s]";
+equation
+  der(phi) = w;
+  m * L * L * der(w) = -m * g * L * sin(phi) - d * w;
+end Pendulum;
+
+</code></pre><h2 id="s10">How the angular pendulum was compiled</h2><div class="counts"><div class="count"><b>2</b><span>equations after flattening</span></div><div class="count"><b>2</b><span>after alias elimination</span></div><div class="count"><b>2</b><span>state variables</span></div><div class="count"><b>2</b><span>blocks to solve</span></div><div class="count"><b>0</b><span>algebraic loops</span></div><div class="count"><b>0</b><span>when-clauses</span></div></div><p>Every component has been expanded into its own variables and equations, with dotted names, and every <code>connect</code> has become real equations: potential variables equal, flow variables summing to zero.</p><h3>The flat model</h3><table><tr><th class='num'>#</th><th>equation</th><th>where it came from</th></tr><tr><td class='num'>1</td><td class='eq'>der(phi) = w</td><td class='note'>Pendulum</td></tr><tr><td class='num'>2</td><td class='eq'>m * L * L * der(w) = -(m * g * L * sin(phi)) - d * w</td><td class='note'>Pendulum</td></tr></table><h3>Alias elimination</h3><p>2 equations become 2. 0 variables were found to be other variables under a different name, or constants; they are substituted away here and recovered at the end of the generated code so they can still be plotted.</p><table></table><h3>What is left to solve</h3><table><tr><th class='num'>#</th><th>equation</th><th>where it came from</th></tr><tr><td class='num'>1</td><td class='eq'>der(phi) = w</td><td class='note'>Pendulum</td></tr><tr><td class='num'>2</td><td class='eq'>m * L * L * der(w) = -(m * g * L * sin(phi)) - d * w</td><td class='note'>Pendulum</td></tr></table><h3>Variables</h3><p>A variable that appears inside <code>der(...)</code> is a <b>state</b>: during simulation the integrator supplies its value, so the unknown in its place is its derivative.</p><table><tr><th>variable</th><th>kind</th><th>start / value</th><th>description</th></tr><tr><td class='mono'>m</td><td>parameter</td><td class='mono'>1</td><td class='note'>mass [kg]</td></tr><tr><td class='mono'>L</td><td>parameter</td><td class='mono'>1</td><td class='note'>length [m]</td></tr><tr><td class='mono'>g</td><td>parameter</td><td class='mono'>9.81</td><td class='note'>gravity [m/s2]</td></tr><tr><td class='mono'>d</td><td>parameter</td><td class='mono'>0.1</td><td class='note'>viscous damping [N.m.s]</td></tr><tr><td class='mono'>phi</td><td>state</td><td class='mono'>1</td><td class='note'>angle from vertical [rad]</td></tr><tr><td class='mono'>w</td><td>state</td><td class='mono'>0</td><td class='note'>angular velocity [rad/s]</td></tr></table><p class='legend'>Unknowns of the simulation problem: <span class='mono'>der(phi), der(w)</span></p><h3>Incidence matrix, as written</h3><p>A mark means the unknown of that column appears in the equation of that row. Nothing here says which equation computes what -- that is the next step.</p><div class='grid'><table class='incidence'><tr><th></th><th class='col'>der(phi)</th><th class='col'>der(w)</th></tr><tr><th class='row'>eq 1</th><td class="matched">&#9679;</td><td></td></tr><tr><th class='row'>eq 2</th><td></td><td class="matched">&#9679;</td></tr></table></div><p class='legend'>&#9679; the unknown this equation was matched with &nbsp;&nbsp; &times; another occurrence</p><h3>Matching</h3><p>Which equation is used to compute which unknown, found by the augmenting-path algorithm. An equation written as <code>v = R*i</code> may well end up computing the current: nothing decided that in advance.</p><table><tr><th class='num'>eq</th><th>computes</th><th>equation</th></tr><tr><td class='num'>1</td><td class='mono'>der(phi)</td><td class='eq'>der(phi) = w</td></tr><tr><td class='num'>2</td><td class='mono'>der(w)</td><td class='eq'>m * L * L * der(w) = -(m * g * L * sin(phi)) - d * w</td></tr></table><h3>Incidence matrix, sorted into blocks</h3><p>The same matrix with the rows and columns in the order the sorting found. Everything above the diagonal is empty, which is exactly the statement that the blocks can be solved one at a time from the top down. A block outlined in red holds more than one equation: an algebraic loop.</p><div class='grid'><table class='incidence'><tr><th></th><th class='col'>der(phi)</th><th class='col'>der(w)</th></tr><tr><th class='row'>eq 1</th><td class="matched">&#9679;</td><td></td></tr><tr><th class='row'>eq 2</th><td></td><td class="matched">&#9679;</td></tr></table></div><p class='legend'>&#9679; the unknown this equation was matched with &nbsp;&nbsp; &times; another occurrence</p><h3>Solution order</h3><p>Tarjan's algorithm returns the blocks already in the order they can be solved.</p><div class='block'><div class='head'>block 1 &mdash; solve for der(phi)</div><div class='eq'>der(phi) = w</div></div><div class='block'><div class='head'>block 2 &mdash; solve for der(w)</div><div class='eq'>m * L * L * der(w) = -(m * g * L * sin(phi)) - d * w</div></div><h3>The generated simulation model</h3><p>This is the code that actually runs. It is generated from the sorted blocks above, one block at a time.</p><pre><code># ==========================================================================
+# Simulation code generated by TinySim for model 'Pendulum'.
+#
+# 2 equations, 2 unknowns, sorted into 2 blocks (no algebraic loops)
+# States: phi, w
+#
+# Dots in model names become double underscores here: c.v -&gt; c__v.
+# ==========================================================================
+
+from math import (sin, cos, tan, asin, acos, atan, atan2, exp, log,
+                  log10, sqrt, tanh, fabs as abs)
+import numpy as np
+from scipy.optimize import fsolve
+
+
+def _solve_block(residual, guess, block, unknowns, t):
+    """
+    Solve one algebraic block numerically.
+
+    An iterative solver needs a starting point, and a bad one can
+    make it fail on a system that has a perfectly good solution --
+    which is exactly why `start` values matter for the variables of
+    an algebraic loop.  This tries the remembered guess first, then
+    a fresh start from zero, and refuses to continue quietly if
+    neither works.
+    """
+    for attempt in (guess, [0.0] * len(guess)):
+        values, _, flag, message = fsolve(residual, attempt,
+                                          full_output=True)
+        if flag == 1:
+            return values
+    raise RuntimeError(
+        'block %d (%s) did not converge at t = %g: %s'
+        % (block, unknowns, t, message.strip()))
+
+
+def evaluate(t, x, p, d, guess=None):
+    """
+    Solve the simulation equations of model 'Pendulum'.
+
+    t     : time
+    x     : state vector, in the order listed below
+    p     : dict of parameter values, keyed by model name
+    d     : dict of discrete-variable values
+    guess : dict used to remember iteration start values
+    """
+    guess = {} if guess is None else guess
+
+    # ---- states: supplied by the integrator ----
+    phi = x[0]    # phi -- angle from vertical [rad]
+    w = x[1]    # w -- angular velocity [rad/s]
+
+    # ---- parameters: constant during simulation ----
+    L = p['L']    # L -- length [m]
+    d = p['d']    # d -- viscous damping [N.m.s]
+    g = p['g']    # g -- gravity [m/s2]
+    m = p['m']    # m -- mass [kg]
+
+    # ---- block 1: solve for der(phi)  [explicit]
+    #        der(phi) = w
+    der_phi = w
+
+    # ---- block 2: solve for der(w)  [explicit]
+    #        m * L * L * der(w) = -(m * g * L * sin(phi)) - d * w
+    der_w = -g*sin(phi)/L - d*w/(L**2*m)
+
+    # ---- results ----
+    der = np.array([der_phi, der_w])
+    variables = {
+        'phi': phi,
+        'w': w,
+        'der(phi)': der_phi,
+        'der(w)': der_w,
+    }
+    events = []
+    return {'der': der, 'variables': variables, 'events': events}
+</code></pre><h2 id="s11">The simulation</h2><p>501 output points over 0 to 5 s, 0 event(s).</p><h3>Values</h3><table><tr><th>variable</th><th>at start</th><th>at end</th></tr><tr><td class='mono'>phi</td><td class='mono'>1</td><td class='mono'>-0.524886</td></tr><tr><td class='mono'>w</td><td class='mono'>0</td><td class='mono'>-1.67589</td></tr></table><h2 id="s12">The experiment script</h2><p>The page above was produced by this script; it is included so the numbers can be traced back to the code that made them.</p><pre><code>"""
+Experiment 5 -- the errors are part of the teaching material.
+
+    python experiments/05_when_it_does_not_work.py
+
+Four models that a tool must reject, and what it should say about each.  The
+last one is the interesting case: a pendulum in Cartesian coordinates is a
+perfectly good physical model that simply cannot be turned into an ODE without
+index reduction.
+
+    python experiments/05_when_it_does_not_work.py --html
+"""
+
+import pathlib
+
+import setup_path  # noqa: F401  (lets this run without installing TinySim)
+import tinysim
+from tinysim import htmlreport
+
+EXAMPLES = pathlib.Path(__file__).resolve().parent.parent / "examples"
+
+page = htmlreport.start(
+    __file__,
+    title="Experiment 5 - the errors are part of the teaching material",
+    subtitle="Four models a tool must reject, and what it should say about each")
+page.add_text("""
+    A modeling tool spends much of its time telling people that what they wrote
+    cannot be simulated. The useful message names the offending equation and
+    says what to do; the last case below is the interesting one, because the
+    model is not wrong at all - it is simply of an index that no rearrangement
+    can lower.
+    """)
+
+CASES = {
+    "an unbalanced model (three unknowns, two equations)": """
+        model Unbalanced
+          Real x, y, z;
+        equation
+          x = 1;
+          y = 2 * x;
+        end Unbalanced;
+    """,
+    "a model that contradicts itself": """
+        model Contradiction
+          Real x, y;
+        equation
+          x = 1;
+          x = 2;
+        end Contradiction;
+    """,
+    "a typo in a variable name": """
+        model Typo
+          Real x;
+        equation
+          der(x) = -y;
+        end Typo;
+    """,
+}
+
+for description, source in CASES.items():
+    print("=" * 78)
+    print(description)
+    print("=" * 78)
+    page.add_code(source.strip(), title=description[0].upper() + description[1:],
+                  language="modelica")
+    try:
+        tinysim.load_source(source)
+    except (tinysim.ModelError, tinysim.TinySimSyntaxError) as error:
+        print(error, "\n")
+        page.add_error(error, getattr(error, "partial_model", None),
+                       title="What TinySim says about it")
+
+print("=" * 78)
+print("a high-index model: the pendulum in Cartesian coordinates")
+print("=" * 78)
+print((EXAMPLES / "pendulum_cartesian.tiny").read_text())
+page.add_source(EXAMPLES / "pendulum_cartesian.tiny",
+                title="A high-index model - the pendulum in Cartesian coordinates")
+try:
+    tinysim.load(EXAMPLES / "pendulum_cartesian.tiny", "CartesianPendulum")
+except tinysim.StructuralError as error:
+    print(error)
+    page.add_error(error, getattr(error, "partial_model", None),
+                   title="Why the Cartesian pendulum cannot be simulated")
+
+print("\nThe same pendulum in angular coordinates has no constraint at all,")
+print("and simulates without trouble:")
+angular = tinysim.load(EXAMPLES / "pendulum.tiny", "Pendulum")
+result = tinysim.simulate(angular, stop=5.0, points=501)
+print(f"  states {angular.analysis.states}, "
+      f"phi(5 s) = {result['phi'][-1]:.4f} rad")
+
+page.add_text("""
+    The same pendulum in angular coordinates has no constraint at all: the rod
+    length is built into the coordinates rather than imposed on them. It needs
+    none of the machinery real tools spend on index reduction, which is the
+    practical lesson - choosing coordinates is part of modeling.
+    """)
+page.add_source(EXAMPLES / "pendulum.tiny", title="The same pendulum, in an angle")
+page.add_model(angular, title="How the angular pendulum was compiled")
+page.add_result(result, ["phi", "w"])
+page.finish()
+</code></pre>
+<footer>Generated by TinySim &mdash; a tiny equation-based, acausal modeling
+language for teaching. Every number and every line of code on this page was
+produced by the pipeline it describes.</footer>
+</main>
+</body>
+</html>

@@ -8,7 +8,13 @@ Everything printed here comes from
 tinysim show examples/electrical.tiny
 ```
 
-so you can reproduce it, and change the model to see what changes.
+so you can reproduce it, and change the model to see what changes. The same
+material for any model, as a standalone web page:
+
+```bash
+tinysim show examples/electrical.tiny --html report.html
+python experiments/build_html.py            # a page per experiment, plus an index
+```
 
 The circuit is a voltage source, a resistor, a capacitor and a ground:
 

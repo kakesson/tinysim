@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TinySim experiments</title>
+<style>
+:root {
+  --page: #ffffff;      --ink: #1b1c1d;     --muted: #5d6470;
+  --rule: #dfe3e8;      --panel: #f6f8fa;   --accent: #0b62c4;
+  --loop: #c62828;      --good: #1b7a43;    --code: #f6f8fa;
+  --hit: #d6e6fb;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #14161a;    --ink: #e6e8ea;     --muted: #9aa3ad;
+    --rule: #2b3038;    --panel: #1b1e24;   --accent: #61a5f2;
+    --loop: #ef5b5b;    --good: #58c98a;    --code: #1b1e24;
+    --hit: #24374d;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 0 1.5rem 5rem; background: var(--page); color: var(--ink);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+main { max-width: 60rem; margin: 0 auto; }
+header { border-bottom: 2px solid var(--rule); margin: 0 0 2rem; padding: 2.5rem 0 1.5rem; }
+header h1 { margin: 0 0 .3rem; font-size: 1.9rem; letter-spacing: -.01em; }
+header p { margin: 0; color: var(--muted); }
+h2 {
+  margin: 3rem 0 .8rem; padding-bottom: .35rem; font-size: 1.3rem;
+  border-bottom: 1px solid var(--rule);
+}
+h3 { margin: 1.8rem 0 .5rem; font-size: 1.05rem; color: var(--muted);
+     text-transform: uppercase; letter-spacing: .06em; }
+p { margin: .8rem 0; }
+a { color: var(--accent); }
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+pre {
+  background: var(--code); border: 1px solid var(--rule); border-radius: 6px;
+  padding: .9rem 1rem; overflow-x: auto; font-size: .82rem; line-height: 1.5;
+}
+nav.toc { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+          padding: 1rem 1.2rem; }
+nav.toc ol { margin: 0; padding-left: 1.2rem; }
+nav.toc li { margin: .15rem 0; }
+table { border-collapse: collapse; width: 100%; font-size: .87rem; margin: .8rem 0; }
+th, td { text-align: left; padding: .32rem .6rem; border-bottom: 1px solid var(--rule); }
+th { color: var(--muted); font-weight: 600; }
+td.num, th.num { text-align: right; color: var(--muted); width: 3rem; }
+td.eq { font-family: ui-monospace, Menlo, Consolas, monospace; }
+td.note { color: var(--muted); font-size: .8rem; }
+.counts { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1rem 0; }
+.count { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+         padding: .5rem .8rem; min-width: 7rem; }
+.count b { display: block; font-size: 1.35rem; line-height: 1.2; }
+.count span { color: var(--muted); font-size: .78rem; }
+.grid { overflow-x: auto; margin: 1rem 0; }
+table.incidence { width: auto; border-collapse: collapse; font-size: .78rem; }
+table.incidence th, table.incidence td { border: 1px solid var(--rule); padding: 0; text-align: center; }
+table.incidence td { width: 1.6rem; height: 1.6rem; }
+table.incidence th.col { writing-mode: vertical-rl; transform: rotate(180deg);
+                         padding: .35rem .1rem; white-space: nowrap; font-weight: 500; }
+table.incidence th.row { padding: 0 .5rem; white-space: nowrap; font-weight: 500; }
+td.hit { background: var(--hit); }
+td.matched { background: var(--accent); color: var(--page); font-weight: 700; }
+td.inloop { outline: 2px solid var(--loop); outline-offset: -2px; }
+.legend { color: var(--muted); font-size: .8rem; }
+.block { border-left: 3px solid var(--rule); padding: .1rem 0 .1rem .8rem; margin: .6rem 0; }
+.block.loop { border-left-color: var(--loop); }
+.block .head { font-weight: 600; }
+.block .eq { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .82rem;
+             color: var(--muted); }
+figure { margin: 1.5rem 0; }
+figure img { max-width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 6px;
+             background: #fff; }
+figcaption { color: var(--muted); font-size: .85rem; margin-top: .4rem; }
+.error { border-left: 3px solid var(--loop); background: var(--panel);
+         padding: .8rem 1rem; border-radius: 0 6px 6px 0; }
+.error pre { background: transparent; border: none; padding: 0; }
+footer { margin-top: 4rem; padding-top: 1rem; border-top: 1px solid var(--rule);
+         color: var(--muted); font-size: .82rem; }
+
+ul.index { list-style: none; padding: 0; }
+ul.index li { border-bottom: 1px solid var(--rule); padding: .9rem 0; font-size: 1.05rem; }
+ul.index .note { color: var(--muted); font-size: .87rem; margin-top: .2rem; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>TinySim experiments</h1>
+  <p>Each report shows one model, every intermediate form of its equations, the
+  generated simulation code, and the results.</p>
+</header>
+<ul class="index"><li><a href="01_rc_pipeline.html">1. From model text to simulation result</a><div class="note">An RC circuit followed through every stage of the compiler, and checked against the solution you would get with pen and paper.</div></li><li><a href="02_structure_and_sorting.html">2. The structure of an equation system</a><div class="note">Incidence matrices before and after sorting, with and without an algebraic loop.</div></li><li><a href="03_hybrid_events.html">3. Hybrid models</a><div class="note">A bouncing ball and a thermostat: state events, state jumps, and discrete variables.</div></li><li><a href="04_initialization.html">4. Initialization is its own system of equations</a><div class="note">A tank that starts where its level is not changing, and what that costs in unknowns.</div></li><li><a href="05_when_it_does_not_work.html">5. The errors are part of the teaching material</a><div class="note">Four models a tool must reject, including a pendulum that is high index rather than wrong.</div></li><li><a href="06_dc_motor.html">6. One connect rule, two physical domains</a><div class="note">Kirchhoff's laws and the balance of torques, generated by the same two lines of the language.</div></li></ul>
+<footer>Generated by TinySim.</footer>
+</main>
+</body>
+</html>

@@ -11,6 +11,7 @@ the product: students read this code.
 .venv/bin/python -m tinysim show FILE.tiny    # print every pipeline stage
 .venv/bin/python -m tinysim check FILE.tiny   # parse + analyse only
 MPLBACKEND=Agg .venv/bin/python experiments/01_rc_pipeline.py
+.venv/bin/python experiments/build_html.py    # regenerate html/ after a change
 ```
 
 The virtual environment is `.venv/` (Python 3.9). There is no `python3` with
@@ -37,7 +38,9 @@ commit and say so.
 ## Non-negotiables
 
 - Every pipeline stage stays inspectable: if you add a stage, add a section to
-  `report.py` and to `docs/pipeline.md`.
+  `report.py`, to `htmlreport.py`, and to `docs/pipeline.md`.
+- Generated HTML must stay self-contained: styles inline, images as data URIs,
+  no scripts, no network.
 - Errors are teaching material. An error message names the offending equation
   or variable and says what to do about it. Never let a numerical solver fail
   silently.

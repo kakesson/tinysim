@@ -12,6 +12,7 @@ Python API in `tinysim/__init__.py` does exactly the same things.
 
 import argparse
 import sys
+from pathlib import Path
 
 from . import __version__, choose_model, compile_model, simulate
 from .flatten import ModelError
@@ -40,6 +41,9 @@ def build_parser() -> argparse.ArgumentParser:
     add_common(show)
     show.add_argument("--stages", default="all",
                       help=f"comma-separated: {', '.join(STAGES)} (default: all)")
+    show.add_argument("--html", default=None, metavar="FILE",
+                      help="write a standalone HTML report to FILE instead of "
+                           "printing")
 
     check = subcommands.add_parser(
         "check", help="parse and analyse the model, reporting problems only")
@@ -76,7 +80,10 @@ def main(argv=None) -> int:
         compiled = _load(arguments)
 
         if arguments.command == "show":
-            explain(compiled, stages=arguments.stages)
+            if arguments.html:
+                _write_html(compiled, arguments)
+            else:
+                explain(compiled, stages=arguments.stages)
 
         elif arguments.command == "check":
             loops = [b for b in compiled.analysis.blocks if len(b) > 1]
@@ -97,13 +104,30 @@ def main(argv=None) -> int:
         # stages that did succeed before reporting what went wrong.
         partial = getattr(error, "partial_model", None)
         if partial is not None and arguments.command == "show":
-            explain(partial, stages="model,flat,connections,alias,variables")
-            print("\n" + "=" * 78)
-            print("THE PIPELINE STOPPED HERE")
-            print("=" * 78)
+            if getattr(arguments, "html", None):
+                _write_html(partial, arguments, error=error)
+            else:
+                explain(partial, stages="model,flat,connections,alias,variables")
+                print("\n" + "=" * 78)
+                print("THE PIPELINE STOPPED HERE")
+                print("=" * 78)
         print(f"error: {error}", file=sys.stderr)
         return 1
     return 0
+
+
+def _write_html(compiled, arguments, error=None):
+    """The same material as `show`, as a standalone page."""
+    from .htmlreport import Page
+    page = Page(title=f"TinySim report - {compiled.name}",
+                subtitle=f"Compiled from {arguments.file}",
+                output=Path(arguments.html))
+    page.add_source(arguments.file)
+    if error is None:
+        page.add_model(compiled)
+    else:
+        page.add_error(error, compiled)
+    page.finish()
 
 
 def _report_run(result, arguments):

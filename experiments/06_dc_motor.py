@@ -7,6 +7,8 @@ The DC motor joins an electrical circuit to a rotating shaft.  Nothing in the
 tool knows about electricity or mechanics: the same two rules -- potentials
 equal, flows sum to zero -- give Kirchhoff's current law on one side and the
 balance of torques on the other.  The proof is in the flat equations.
+
+    python experiments/06_dc_motor.py --html
 """
 
 import pathlib
@@ -15,13 +17,29 @@ import matplotlib.pyplot as plt
 
 import setup_path  # noqa: F401  (lets this run without installing TinySim)
 import tinysim
+from tinysim import htmlreport
 
 EXAMPLES = pathlib.Path(__file__).resolve().parent.parent / "examples"
 FIGURES = pathlib.Path(__file__).resolve().parent.parent / "figures"
 FIGURES.mkdir(exist_ok=True)
 
+page = htmlreport.start(
+    __file__,
+    title="Experiment 6 - one connect rule, two physical domains",
+    subtitle="A DC motor: Kirchhoff's laws and the balance of torques from the same two lines")
+
 motor = tinysim.load(EXAMPLES / "dcmotor.tiny", "DCMotor")
 tinysim.explain(motor, "connections")
+
+page.add_text("""
+    Nothing in the tool knows about electricity or mechanics. Both connectors
+    declare one potential variable and one flow variable, and the same two
+    rules apply to both: potentials in a connection set are equal, flows sum to
+    zero. On the electrical side that is Kirchhoff; on the mechanical side it
+    is the balance of torques. The flat equations below are the proof.
+    """)
+page.add_source(EXAMPLES / "dcmotor.tiny")
+page.add_model(motor)
 
 print("\nequations that came from connect():")
 for equation in motor.flat.equations:
@@ -50,4 +68,8 @@ current.grid(alpha=0.3)
 figure.tight_layout()
 figure.savefig(FIGURES / "dc_motor.png", dpi=150)
 print(f"wrote {FIGURES / 'dc_motor.png'}")
-plt.show()
+page.add_result(result, ["load.w", "load.phi", "l.i", "emf.v"],
+                title="The simulation - starting up")
+page.add_figure(figure, f"The shaft settles at the speed a hand calculation "
+                        f"gives, {steady_state:.1f} rad/s.")
+page.finish()

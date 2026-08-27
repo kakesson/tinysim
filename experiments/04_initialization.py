@@ -8,6 +8,8 @@ better: that the level should start where it is not changing.  That single
 `initial equation` turns the start-up into a small nonlinear problem, solved
 once, before the integration begins -- with its own unknowns, its own matching
 and its own generated code.
+
+    python experiments/04_initialization.py --html
 """
 
 import pathlib
@@ -16,12 +18,27 @@ import matplotlib.pyplot as plt
 
 import setup_path  # noqa: F401  (lets this run without installing TinySim)
 import tinysim
+from tinysim import htmlreport
 
 EXAMPLES = pathlib.Path(__file__).resolve().parent.parent / "examples"
 FIGURES = pathlib.Path(__file__).resolve().parent.parent / "figures"
 FIGURES.mkdir(exist_ok=True)
 
+page = htmlreport.start(
+    __file__,
+    title="Experiment 4 - initialization is its own system of equations",
+    subtitle="A tank that starts where its level is not changing")
+
 tank = tinysim.load(EXAMPLES / "tank.tiny", "Tank")
+page.add_text("""
+    During simulation the unknowns are der(h) and q, and the integrator
+    supplies h. At initialization h is an unknown as well, and the extra
+    equation der(h) = 0 is what pays for it. That is a different system, with
+    its own matching, its own solution order and its own generated function -
+    both are shown below.
+    """)
+page.add_source(EXAMPLES / "tank.tiny")
+page.add_model(tank)
 
 print("Unknowns during simulation :", tank.analysis.unknowns)
 print("Unknowns at initialization :", tank.initialization_analysis.unknowns)
@@ -53,4 +70,8 @@ axis.grid(alpha=0.3)
 figure.tight_layout()
 figure.savefig(FIGURES / "tank_initialization.png", dpi=150)
 print(f"wrote {FIGURES / 'tank_initialization.png'}")
-plt.show()
+page.add_result(steady, ["h", "q"], title="The simulation - steady start")
+page.add_figure(figure, "With the initial equation the level never moves. "
+                        "Given an arbitrary start value instead, the same "
+                        "model has to settle first.")
+page.finish()

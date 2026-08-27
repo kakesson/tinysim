@@ -76,6 +76,7 @@ From the command line:
 ```bash
 tinysim show  examples/electrical.tiny                 # the whole pipeline
 tinysim show  examples/dcmotor.tiny --stages flat,blt,code
+tinysim show  examples/dcmotor.tiny --html report.html # ... as a web page
 tinysim check examples/pendulum_cartesian.tiny         # analyse only
 tinysim run   examples/bouncing_ball.tiny --stop 3 --plot h,v
 ```
@@ -110,6 +111,17 @@ tinysim run   examples/bouncing_ball.tiny --stop 3 --plot h,v
    .venv/bin/python experiments/04_initialization.py        # steady-state start-up
    .venv/bin/python experiments/05_when_it_does_not_work.py # the error messages
    .venv/bin/python experiments/06_dc_motor.py              # two domains, one rule
+   ```
+
+   Every experiment also takes `--html`, which writes a standalone page
+   instead of showing the plot: the model, every intermediate form of its
+   equations, the sorted blocks, the generated simulation code, the results,
+   the figures, and the script that produced them -- with no external files, so
+   it can be handed out, opened offline, or printed.
+
+   ```bash
+   .venv/bin/python experiments/03_hybrid_events.py --html   # one page
+   .venv/bin/python experiments/build_html.py                # all six + an index
    ```
 
 4. The source, in pipeline order: `lexer.py`, `parser.py`, `flatten.py`,

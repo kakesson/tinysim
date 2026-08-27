@@ -120,3 +120,20 @@ def test_show_prints_the_stages_that_succeeded_before_a_failure(capsys, examples
     assert "x^2 + y^2 = L^2" in captured.out
     assert "structurally singular" in captured.err
     assert "Pantelides" in captured.err
+
+
+def test_cli_show_can_write_html(tmp_path, examples):
+    target = tmp_path / "report.html"
+    assert main(["show", str(examples / "dcmotor.tiny"), "--html", str(target)]) == 0
+    text = target.read_text()
+    assert "The generated simulation model" in text
+    assert "emf.flange.tau + load.flange.tau = 0" in text     # a connect equation
+
+
+def test_cli_html_report_of_a_model_that_does_not_compile(tmp_path, examples):
+    target = tmp_path / "broken.html"
+    assert main(["show", str(examples / "pendulum_cartesian.tiny"),
+                 "--html", str(target)]) == 1
+    text = target.read_text()
+    assert "structurally singular" in text
+    assert "The stages that did succeed" in text
