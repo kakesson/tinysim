@@ -61,7 +61,8 @@ Real v(start = 0) "capacitor voltage";
 ```
 
 Supported attributes: `start` (the initial value of a state, or the initial
-guess for an algebraic variable), `min`, `max` and `nominal` (reporting only).
+guess for an iterative solve), and `min`, `max`, `nominal`, which are accepted
+and carried through the pipeline but which TinySim does not otherwise act on.
 
 ## 3. Connectors
 

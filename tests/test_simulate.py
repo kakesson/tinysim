@@ -218,3 +218,55 @@ def test_asking_for_an_unknown_variable_is_helpful():
     result = tinysim.simulate(model, stop=0.1, points=5)
     with pytest.raises(KeyError, match="not a variable of this model"):
         result["c.voltage"]
+
+
+def test_if_expressions_and_functions_are_generated_correctly():
+    """
+    A saturating source: the equation switches on a condition.
+
+    `if` is an *expression* in TinySim, so it appears inside a block like any
+    other formula -- SymPy turns it into a piecewise expression and the
+    generated code into a conditional.
+    """
+    source = """
+    model Saturated
+      parameter Real limit = 2;
+      parameter Real rate = 3;
+      Real u "the raw signal";
+      Real y "the saturated signal";
+      Real x(start = 0);
+    equation
+      u = rate * time;
+      y = if u > limit then limit else u;
+      der(x) = y;
+    end Saturated;
+    """
+    model = tinysim.load_source(source, "Saturated")
+    result = tinysim.simulate(model, stop=2.0, points=201, rtol=1e-9, atol=1e-11)
+    assert result["y"].max() == pytest.approx(2.0)
+    assert result["y"][10] == pytest.approx(3 * result.time[10])
+    # x is the area under the saturated ramp: a triangle then a rectangle.
+    corner = 2.0 / 3.0
+    expected = 0.5 * corner * 2.0 + 2.0 * (2.0 - corner)
+    assert result["x"][-1] == pytest.approx(expected, rel=1e-5)
+
+
+def test_the_built_in_functions_reach_the_generated_code():
+    source = """
+    model Functions
+      Real a, b, c, d;
+      Real x(start = 1);
+    equation
+      a = sqrt(abs(-4));
+      b = max(sin(time), 0.5);
+      c = tanh(0) + sign(-3);
+      d = atan2(1, 1);
+      der(x) = 0;
+    end Functions;
+    """
+    result = tinysim.simulate(tinysim.load_source(source, "Functions"),
+                              stop=1.0, points=3)
+    assert result["a"][0] == pytest.approx(2.0)
+    assert result["b"][0] == pytest.approx(0.5)
+    assert result["c"][0] == pytest.approx(-1.0)
+    assert result["d"][0] == pytest.approx(math.pi / 4)
