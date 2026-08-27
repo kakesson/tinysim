@@ -101,7 +101,7 @@ def plot_incidence(analysis: StructuralAnalysis, sorted_form: bool = False,
     ax.set_xticklabels(column_order, rotation=90, fontsize=7)
     ax.set_yticks(range(len(row_order)))
     ax.set_yticklabels([f"eq {i + 1}" for i in row_order], fontsize=7)
-    ax.set_xlabel("unknowns")
+    ax.set_xlabel("unknowns   (dark = the one this equation is solved for)")
     ax.set_ylabel("equations")
 
     if sorted_form:
