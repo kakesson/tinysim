@@ -277,6 +277,9 @@ class Parser:
                 self.error("unterminated 'when': missing 'end'")
             body.append(self.parse_when_statement())
         self.expect("end")
+        if self.current.kind == "IDENT":
+            self.error("a 'when' block is closed with 'end;', not "
+                       f"'end {self.current.text};'")
         self.expect(";")
         if not body:
             raise TinySimSyntaxError(

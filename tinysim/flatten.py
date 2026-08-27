@@ -335,10 +335,49 @@ class Flattener:
                     f"{reference!r}")
             sign = -1 if depth == 0 else +1
             endpoints.append((prefix + reference, sign))
-        self.connections.append((endpoints[0], endpoints[1], connect.line))
+        self.connections.append((prefix, endpoints[0], endpoints[1], connect.line))
 
     def _expand_connections(self):
-        """Turn the recorded connections into equations."""
+        """
+        Turn the recorded connections into equations.
+
+        Connection sets are formed *per model*, not once for the whole
+        flattened model.  That distinction matters as soon as a model has
+        connectors of its own: in
+
+            connect(p, r1.p);        // inside Series
+            connect(src.p, s.p);     // inside Circuit
+
+        `s.p` is an outside connector in the first set and an inside connector
+        in the second.  Handling each model separately gives the two equations
+
+            -s.p.i + s.r1.p.i = 0    and    src.p.i + s.p.i = 0
+
+        which together say what they should -- the current entering the
+        composite component is the current that reaches `r1`.  Merging both
+        connects into one set would instead leave `s.p.i` free and quietly
+        break the circuit.
+        """
+        by_model: Dict[str, List[tuple]] = {}
+        for prefix, endpoint_a, endpoint_b, line in self.connections:
+            by_model.setdefault(prefix, []).append((endpoint_a, endpoint_b, line))
+
+        connected: set = set()
+        for prefix in by_model:
+            connected |= self._expand_one_model(by_model[prefix])
+
+        # A connector nobody connected to carries no flow.
+        for name, connector_class in self.connector_instances.items():
+            if name in connected:
+                continue
+            for flow_variable in self._flow_variables(connector_class):
+                self.model.equations.append(Equation(
+                    Ref(f"{name}.{flow_variable}"), Num(0.0),
+                    source=f"{name}.{flow_variable} = 0",
+                    origin=f"unconnected connector {name}"))
+
+    def _expand_one_model(self, connections) -> set:
+        """Build the connection sets written inside one model instance."""
         # Union-find: group connectors that are transitively connected.
         parent: Dict[str, str] = {}
 
@@ -355,7 +394,7 @@ class Flattener:
                 parent[root_b] = root_a
 
         signs: Dict[str, int] = {}
-        for (name_a, sign_a), (name_b, sign_b), line in self.connections:
+        for (name_a, sign_a), (name_b, sign_b), line in connections:
             for name, sign in ((name_a, sign_a), (name_b, sign_b)):
                 if name not in self.connector_instances:
                     raise ModelError(
@@ -383,16 +422,7 @@ class Flattener:
                               signs={m: signs[m] for m in members},
                               connector_class=connector_class))
             self._equations_for_set(members, signs, connector_class)
-
-        # A connector nobody connected to carries no flow.
-        for name, connector_class in self.connector_instances.items():
-            if name in signs:
-                continue
-            for flow_variable in self._flow_variables(connector_class):
-                self.model.equations.append(Equation(
-                    Ref(f"{name}.{flow_variable}"), Num(0.0),
-                    source=f"{name}.{flow_variable} = 0",
-                    origin=f"unconnected connector {name}"))
+        return set(signs)
 
     def _equations_for_set(self, members, signs, connector_class):
         """The two rules that make acausal modeling work."""
@@ -412,8 +442,10 @@ class Flattener:
             total = None
             for member in members:
                 term = Ref(f"{member}.{flow_variable}")
-                term = term if signs[member] > 0 else UnOp("-", term)
-                total = term if total is None else BinOp("+", total, term)
+                if total is None:
+                    total = term if signs[member] > 0 else UnOp("-", term)
+                else:
+                    total = BinOp("+" if signs[member] > 0 else "-", total, term)
             equation = Equation(total, Num(0.0),
                                 origin=f"connect({description}) - flow")
             equation.source = f"{to_string(total)} = 0"

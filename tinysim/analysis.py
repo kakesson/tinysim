@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
 from .ast_nodes import BinOp, Call, Equation, Expr, IfExpr, Num, Ref, UnOp
+from .evaluator import EvaluationError, evaluate, free_names
 from .flatten import FlatModel, ModelError, derivative_names
 
 
@@ -131,6 +132,27 @@ def find_states(model: FlatModel) -> List[str]:
     return [n for n in model.continuous_variables() if n in states]
 
 
+def check_balance(model: FlatModel):
+    """
+    The first check a modeling tool performs, on the *flat* model.
+
+    A model is balanced when it has exactly as many equations as continuous
+    variables.  Checking here, before anything is simplified, means the counts
+    reported are the ones the student can count in the flat model themselves.
+    """
+    equations = len(model.equations)
+    variables = len(model.continuous_variables())
+    if equations == variables:
+        return
+    difference = equations - variables
+    hint = ("too many equations: remove one, or turn a variable you are "
+            "prescribing into a parameter" if difference > 0 else
+            "too few equations: every unknown needs an equation of its own")
+    raise StructuralError(
+        f"model {model.name!r} has {equations} equations but {variables} "
+        f"continuous variables ({hint})")
+
+
 def analyze(model: FlatModel, kind: str = "simulation") -> StructuralAnalysis:
     """
     Analyse the flat model.
@@ -164,26 +186,140 @@ def analyze(model: FlatModel, kind: str = "simulation") -> StructuralAnalysis:
     ]
 
     _check_counts(analysis, model)
+    _check_for_empty_equations(analysis, model)
     analysis.matching = match_equations(analysis)
     analysis.blocks = sort_blocks(analysis)
     return analysis
 
 
 def _check_counts(analysis: StructuralAnalysis, model: FlatModel):
-    """The first sanity check every modeling tool performs."""
+    """
+    Count equations against unknowns for the system about to be solved.
+
+    `check_balance` already did this for the flat model; this is the same check
+    for the simulation and initialization systems, which have different unknown
+    sets.  For a well-formed model it never fires -- it is a safety net for the
+    simplification passes.
+    """
     number_of_equations = len(analysis.equations)
     number_of_unknowns = len(analysis.unknowns)
     if number_of_equations == number_of_unknowns:
         return
-    what = "initialization problem" if analysis.kind == "initialization" else "model"
+    what = ("initialization problem" if analysis.kind == "initialization"
+            else "simulation problem")
     difference = number_of_equations - number_of_unknowns
-    hint = ("too many equations: remove one, or make a variable that you are "
-            "prescribing into a parameter"
-            if difference > 0 else
+    hint = ("too many equations" if difference > 0 else
             "too few equations: every unknown needs an equation of its own")
     raise StructuralError(
         f"the {what} has {number_of_equations} equations but "
         f"{number_of_unknowns} unknowns ({hint})")
+
+
+def _check_for_empty_equations(analysis: StructuralAnalysis, model: FlatModel):
+    """
+    Look at equations that contain no unknown at all.
+
+    There are two quite different reasons for that, and they deserve different
+    messages:
+
+    * The equation relates *states* only, as `x^2 + y^2 = L^2` does.  That is a
+      constraint the states must satisfy, which is exactly what a differential
+      index above 1 means.
+    * The equation contains no variables at all -- two grounds on one node,
+      say, or a genuine contradiction such as `x = 1` together with `x = 2`.
+    """
+    empty = [index for index, unknowns in enumerate(analysis.incidence)
+             if not unknowns]
+    if not empty:
+        return
+
+    states = set(analysis.states)
+    constraints, trivial = [], []
+    for index in empty:
+        equation = analysis.equations[index]
+        names = free_names(equation.lhs) | free_names(equation.rhs)
+        (constraints if names & states else trivial).append(index)
+
+    if trivial:
+        raise StructuralError(_trivial_equation_message(analysis, model, trivial),
+                              unmatched_equations=trivial)
+
+    raise StructuralError(_singularity_message(analysis, constraints, []),
+                          unmatched_equations=constraints)
+
+
+def _trivial_equation_message(analysis, model: FlatModel, indices) -> str:
+    contradictory = []
+    for index in indices:
+        equation = analysis.equations[index]
+        try:
+            difference = (evaluate(equation.lhs, model.parameter_values)
+                          - evaluate(equation.rhs, model.parameter_values))
+        except EvaluationError:                                # pragma: no cover
+            continue
+        if abs(difference) > 1e-12:
+            contradictory.append(index)
+
+    listing = "\n".join(
+        f"    eq {index + 1}: {analysis.equations[index].source}"
+        + (f"      [{analysis.equations[index].origin}]"
+           if analysis.equations[index].origin else "")
+        for index in indices)
+    if contradictory:
+        return ("the model contradicts itself: these equations cannot all "
+                f"hold.\n{listing}")
+    return ("these equations contain no unknown, so the model states the same "
+            f"fact twice -- remove one of them.\n{listing}")
+
+
+def _singularity_message(analysis: StructuralAnalysis, unmatched_equations,
+                         unmatched_unknowns) -> str:
+    """
+    Explain why the equations cannot be matched.
+
+    The equation count came out right -- otherwise `check_balance` would have
+    complained already -- so some equations are competing for the same unknowns
+    while others have none left.  For a physically sensible model that almost
+    always means the differential index is higher than one: there is a
+    constraint between the states, so the states are not independent, and no
+    state-space form exists without differentiating equations first.
+    """
+    lines = ["the model is structurally singular: there is no way to give "
+             "every equation an unknown of its own.", ""]
+    if unmatched_equations:
+        lines.append("Equations left without an unknown to compute:")
+        for index in unmatched_equations:
+            equation = analysis.equations[index]
+            lines.append(f"    eq {index + 1}: {equation.source}"
+                         + (f"      [{equation.origin}]" if equation.origin else ""))
+    if unmatched_unknowns:
+        lines.append("Unknowns left without an equation to compute them:")
+        for unknown in unmatched_unknowns:
+            lines.append(f"    {unknown}")
+    lines += [
+        "",
+        "This usually means the differential index of the model is higher than "
+        "1: the",
+        "state variables are not independent, but tied together by a "
+        "constraint. A model",
+        "like a pendulum in Cartesian coordinates is the standard example -- x "
+        "and y are",
+        "states, yet x^2 + y^2 = L^2 must hold at all times.",
+        "",
+        "Real tools handle this by *index reduction*: Pantelides' algorithm "
+        "finds the",
+        "constraints that must be differentiated, differentiates them, and "
+        "dummy-derivative",
+        "selection then picks which variables stay states. TinySim deliberately "
+        "stops here",
+        "instead, so that the failure -- and the reason index reduction exists "
+        "-- is visible.",
+        "",
+        "If the model is not meant to be high index, look for a variable that "
+        "two equations",
+        "are both trying to compute, or one that no equation computes at all.",
+    ]
+    return "\n".join(lines)
 
 
 # =============================================================================
@@ -220,59 +356,15 @@ def match_equations(analysis: StructuralAnalysis) -> Dict[int, str]:
 
 
 def _report_singularity(analysis: StructuralAnalysis, assignment: Dict[str, int]):
-    """
-    Explain a failed matching.
-
-    The equation count came out right -- otherwise `_check_counts` would have
-    complained already -- so some equations must be competing for the same
-    unknowns while others have none left.  For a physically sensible model that
-    almost always means the differential index is higher than one: there is a
-    constraint between the states, so the states are not independent, and no
-    state-space form exists without differentiating equations first.
-    """
+    """Raise the explanation for a matching that could not be completed."""
     matched_equations = set(assignment.values())
     unmatched_equations = [i for i in range(len(analysis.equations))
                            if i not in matched_equations]
     unmatched_unknowns = [u for u in analysis.unknowns if u not in assignment]
-
-    lines = ["the model is structurally singular: there is no way to give "
-             "every equation an unknown of its own.", ""]
-    if unmatched_equations:
-        lines.append("Equations left without an unknown to compute:")
-        for index in unmatched_equations:
-            equation = analysis.equations[index]
-            lines.append(f"    eq {index + 1}: {equation.source}"
-                         + (f"      [{equation.origin}]" if equation.origin else ""))
-    if unmatched_unknowns:
-        lines.append("Unknowns left without an equation to compute them:")
-        for unknown in unmatched_unknowns:
-            lines.append(f"    {unknown}")
-    lines += [
-        "",
-        "This usually means the differential index of the model is higher "
-        "than 1: the",
-        "state variables are not independent, but tied together by a "
-        "constraint. A model",
-        "like a pendulum in Cartesian coordinates is the standard example -- "
-        "x and y are",
-        "states, yet x^2 + y^2 = L^2 must hold at all times.",
-        "",
-        "Real tools handle this by *index reduction*: Pantelides' algorithm "
-        "finds the",
-        "constraints that must be differentiated, differentiates them, and "
-        "dummy-derivative",
-        "selection then picks which variables stay states. TinySim deliberately "
-        "stops here",
-        "instead, so that the failure -- and the reason index reduction exists "
-        "-- is visible.",
-        "",
-        "If the model is not meant to be high index, look for a variable that "
-        "two equations",
-        "are both trying to compute, or one that no equation computes at all.",
-    ]
-    raise StructuralError("\n".join(lines),
-                          unmatched_equations=unmatched_equations,
-                          unmatched_unknowns=unmatched_unknowns)
+    raise StructuralError(
+        _singularity_message(analysis, unmatched_equations, unmatched_unknowns),
+        unmatched_equations=unmatched_equations,
+        unmatched_unknowns=unmatched_unknowns)
 
 
 # =============================================================================

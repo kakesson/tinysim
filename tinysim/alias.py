@@ -76,13 +76,18 @@ def _additive_terms(expr: Expr, sign: int = 1) -> Optional[List[Tuple[int, Expr]
     return None
 
 
-def _classify(equation: Equation, unknowns: set) -> Optional[tuple]:
+def _classify(equation: Equation, unknowns: set, constants: set) -> Optional[tuple]:
     """
     Decide whether `equation` is an alias, a known value, or neither.
 
     Returns ('alias', a, b, sign), ('known', name, expression) or None.
     Everything is first moved to one side, so `a = -b` and `a + b = 0` are
     recognised as the same thing.
+
+    A "known" value must be built from parameters and numbers only.  In
+    particular `v = slope * time` does *not* count: a variable that follows the
+    clock still has a derivative, and pretending otherwise would silently turn
+    a high-index model into a wrong one.
     """
     left = _additive_terms(equation.lhs, +1)
     right = _additive_terms(equation.rhs, -1)
@@ -93,7 +98,12 @@ def _classify(equation: Equation, unknowns: set) -> Optional[tuple]:
     variable_terms = [(s, t.name) for s, t in terms
                       if isinstance(t, Ref) and t.name in unknowns]
     other_terms = [(s, t) for s, t in terms
-                   if not (isinstance(t, Ref) and t.name in unknowns)]
+                   if not (isinstance(t, Ref) and t.name in unknowns)
+                   and not (isinstance(t, Num) and t.value == 0.0)]
+
+    if any(name not in constants
+           for _, term in other_terms for name in free_names(term)):
+        return None
 
     if len(variable_terms) == 2 and not other_terms:
         # s1*a + s2*b = 0   ->   a = -(s2/s1) * b
@@ -102,14 +112,14 @@ def _classify(equation: Equation, unknowns: set) -> Optional[tuple]:
             return None
         return "alias", name_a, name_b, -sign_a * sign_b
 
-    if len(variable_terms) == 1 and other_terms:
-        # s*v + C = 0   ->   v = -s*C
+    if len(variable_terms) == 1:
+        # s*v + C = 0   ->   v = -s*C   (with C = 0 when there is no other term)
         sign, name = variable_terms[0]
         constant = None
         for term_sign, term in other_terms:
             piece = term if term_sign * sign < 0 else UnOp("-", term)
             constant = piece if constant is None else BinOp("+", constant, piece)
-        return "known", name, constant
+        return "known", name, constant if constant is not None else Num(0.0)
 
     return None
 
@@ -135,21 +145,31 @@ def substitute(expr: Expr, mapping: Dict[str, tuple]) -> Expr:
                       substitute(expr.else_expr, mapping))
     if isinstance(expr, Call):
         if expr.func in ("der", "pre"):
-            name = expr.args[0].name
-            replacement = _replacement(name, mapping)
-            if replacement is None:
-                return expr
-            # der(-x) is not writable, so a negated alias becomes -der(x).
-            if isinstance(replacement, Ref):
-                return Call(expr.func, (replacement,))
-            if (isinstance(replacement, UnOp) and replacement.op == "-"
-                    and isinstance(replacement.operand, Ref)):
-                return UnOp("-", Call(expr.func, (replacement.operand,)))
-            if expr.func == "der":
-                return Num(0.0)     # derivative of a constant expression
-            return replacement
+            return _substitute_derivative(expr.func, expr.args[0].name, mapping)
         return Call(expr.func, tuple(substitute(a, mapping) for a in expr.args))
     raise TypeError(f"cannot substitute in {expr!r}")
+
+
+def _substitute_derivative(func: str, name: str, mapping: Dict[str, tuple]) -> Expr:
+    """
+    Substitute inside `der(x)` or `pre(x)`.
+
+    Which rule applies depends on what `x` turned out to be:
+
+    * an alias of another variable  ->  `der(y)`, negated if the alias is;
+    * a known constant value        ->  `der(x)` is zero.
+
+    The second rule is only sound because a "known" value is built from
+    parameters alone (see `_classify`), so it really does not change with time.
+    """
+    entry = mapping.get(name)
+    if entry is None:
+        return Call(func, (Ref(name),))
+    if entry[0] == "alias":
+        _, representative, sign = entry
+        call = Call(func, (Ref(representative),))
+        return call if sign > 0 else UnOp("-", call)
+    return Num(0.0) if func == "der" else entry[1]
 
 
 def _replacement(name: str, mapping: Dict[str, tuple]) -> Optional[Expr]:
@@ -167,9 +187,64 @@ def _replacement(name: str, mapping: Dict[str, tuple]) -> Optional[Expr]:
 # The pass itself
 # =============================================================================
 
-def eliminate_aliases(model: FlatModel) -> AliasResult:
-    """Remove alias and known-value equations, returning a smaller model."""
+def eliminate_aliases(model: FlatModel, maximum_passes: int = 10) -> AliasResult:
+    """
+    Remove alias and known-value equations, returning a smaller model.
+
+    One pass is not enough.  Substituting `src.n.v = 0` turns
+
+        c1.v = c1.p.v - c1.n.v      (three variables, not an alias)
+
+    into
+
+        c1.v = r.n.v                (an alias, once the zero is substituted)
+
+    so the pass is repeated until nothing more can be removed.  Real Modelica
+    compilers do the same, which is why they can report that a model with
+    thousands of flat equations has only a handful of real ones left.
+    """
+    combined: Dict[str, tuple] = {}
+    removed: List[Equation] = []
+    current = model
+
+    for _ in range(maximum_passes):
+        result = _one_pass(current)
+        if not result.removed_equations:
+            break
+        _compose(combined, result.eliminated)
+        removed.extend(result.removed_equations)
+        current = result.model
+
+    return AliasResult(model=current, eliminated=combined, removed_equations=removed)
+
+
+def _compose(combined: Dict[str, tuple], latest: Dict[str, tuple]):
+    """
+    Fold the newest pass into what earlier passes already found.
+
+    A variable that was mapped to a representative which has now itself been
+    eliminated must be re-pointed at whatever replaced it.
+    """
+    for name, entry in list(combined.items()):
+        if entry[0] != "alias":
+            continue
+        _, representative, sign = entry
+        replacement = latest.get(representative)
+        if replacement is None:
+            continue
+        if replacement[0] == "alias":
+            combined[name] = ("alias", replacement[1], sign * replacement[2])
+        else:
+            expression = replacement[1]
+            combined[name] = ("known",
+                              expression if sign > 0 else UnOp("-", expression))
+    combined.update(latest)
+
+
+def _one_pass(model: FlatModel) -> AliasResult:
+    """A single sweep: find the trivial equations and substitute them away."""
     unknowns = set(model.continuous_variables()) | set(model.discrete_variables())
+    constants = set(model.parameters())
 
     # Variables that must survive, because events act on them by name.
     protected = set()
@@ -177,13 +252,39 @@ def eliminate_aliases(model: FlatModel) -> AliasResult:
         for statement in when_equation.body:
             protected.add(statement.name)
 
-    # Variables that are states: they make the best representatives, because
-    # the generated code then talks about `c.v` rather than `c.p.v`.
+    # States make the best representatives: the generated code then talks about
+    # `c.v` rather than about `c.p.v`.
     states = set()
     for equation in model.equations + model.initial_equations:
         states |= derivative_names(equation.lhs) | derivative_names(equation.rhs)
 
-    # -- union-find with signs: x = sign * root ------------------------------
+    # -- 1. sort the equations into aliases, known values, and the rest -------
+    alias_equations = []        # (equation, name_a, name_b, sign)
+    known_equations = []        # (equation, name, expression)
+    kept_equations: List[Equation] = []
+    removed: List[Equation] = []
+
+    for equation in model.equations:
+        classified = _classify(equation, unknowns, constants)
+        if classified is None:
+            kept_equations.append(equation)
+        elif classified[0] == "alias":
+            _, name_a, name_b, sign = classified
+            # Never merge across variability: a discrete flag is not a
+            # continuous variable, even when an equation relates them.
+            if (model.variables[name_a].kind != model.variables[name_b].kind
+                    or (name_a in protected and name_b in protected)):
+                kept_equations.append(equation)
+            else:
+                alias_equations.append((equation, name_a, name_b, sign))
+        else:
+            _, name, expression = classified
+            if name in protected:
+                kept_equations.append(equation)
+            else:
+                known_equations.append((equation, name, expression))
+
+    # -- 2. group the aliases: union-find carrying a sign, x = sign * root ----
     root: Dict[str, Tuple[str, int]] = {}
 
     def find(name: str) -> Tuple[str, int]:
@@ -194,51 +295,32 @@ def eliminate_aliases(model: FlatModel) -> AliasResult:
         root[name] = (grand_parent, sign * grand_sign)
         return root[name]
 
-    def union(name_a: str, name_b: str, sign: int) -> bool:
-        """Record a = sign * b.  Returns False if that contradicts what we know."""
+    for equation, name_a, name_b, sign in alias_equations:
         root_a, sign_a = find(name_a)
         root_b, sign_b = find(name_b)
         if root_a == root_b:
-            return sign_a * sign_b == sign
-        # a = sign_a * root_a, b = sign_b * root_b, a = sign * b
-        root[root_a] = (root_b, sign * sign_b * sign_a)
-        return True
-
-    known: Dict[str, Expr] = {}          # group root -> constant expression
-    kept_equations: List[Equation] = []
-    removed: List[Equation] = []
-
-    for equation in model.equations:
-        classified = _classify(equation, unknowns)
-        if classified is None:
-            kept_equations.append(equation)
+            if sign_a * sign_b != sign:
+                raise ModelError(f"contradictory equations: {equation.source}")
+            kept_equations.append(equation)     # says nothing new, keep the count
             continue
-        if classified[0] == "alias":
-            _, name_a, name_b, sign = classified
-            # Never merge across variability: a discrete flag is not a
-            # continuous variable, even when an equation relates them.
-            if (model.variables[name_a].kind != model.variables[name_b].kind
-                    or name_a in protected and name_b in protected):
-                kept_equations.append(equation)
-                continue
-            if not union(name_a, name_b, sign):
-                raise ModelError(
-                    f"contradictory equations: {equation.source}")
-            removed.append(equation)
-        else:
-            _, name, expression = classified
-            if name in protected:
-                kept_equations.append(equation)
-                continue
-            group_root, sign = find(name)
-            value = expression if sign > 0 else UnOp("-", expression)
-            if group_root in known:
-                kept_equations.append(equation)      # already pinned: keep as a check
-                continue
-            known[group_root] = value
-            removed.append(equation)
+        # a = sign_a * root_a, b = sign_b * root_b, and a = sign * b
+        root[root_a] = (root_b, sign * sign_b * sign_a)
+        removed.append(equation)
 
-    # -- choose a representative for every alias group -----------------------
+    # -- 3. resolve the known values, now that the groups are final ----------
+    known: Dict[str, Expr] = {}
+    for equation, name, expression in known_equations:
+        group_root, sign = find(name)
+        # name = sign * group_root and name = expression, so the root is
+        # sign * expression.
+        value = expression if sign > 0 else UnOp("-", expression)
+        if group_root in known:
+            kept_equations.append(equation)     # a second equation for the same
+            continue                            # value: redundant, keep it
+        known[group_root] = value
+        removed.append(equation)
+
+    # -- 4. decide what each eliminated variable is equal to ------------------
     groups: Dict[str, List[str]] = {}
     for name in list(root):
         group_root, _ = find(name)
@@ -250,8 +332,8 @@ def eliminate_aliases(model: FlatModel) -> AliasResult:
             expression = known[group_root]
             for member in members:
                 _, sign = find(member)
-                value = expression if sign > 0 else UnOp("-", expression)
-                mapping[member] = ("known", value)
+                mapping[member] = ("known", expression if sign > 0
+                                   else UnOp("-", expression))
             continue
         representative = _pick_representative(members, states, protected, model)
         _, representative_sign = find(representative)

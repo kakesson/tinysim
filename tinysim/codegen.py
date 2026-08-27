@@ -156,7 +156,9 @@ class CodeGenerator:
     def _check_name_clashes(self):
         """`a.b` and `a__b` would both become `a__b` in the generated code."""
         seen = {}
-        for name in self.model.variables:
+        # Eliminated variables are recovered in the generated code too, so they
+        # take part in the clash.
+        for name in list(self.model.variables) + list(self.eliminated):
             mangled = mangle(name)
             if mangled in seen:
                 raise ModelError(

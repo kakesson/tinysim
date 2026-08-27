@@ -30,7 +30,8 @@ from dataclasses import dataclass
 from typing import Optional
 
 from .alias import AliasResult, eliminate_aliases
-from .analysis import StructuralAnalysis, StructuralError, analyze
+from .analysis import (StructuralAnalysis, StructuralError, analyze,
+                       check_balance)
 from .ast_nodes import Program
 from .codegen import GeneratedCode, generate_code
 from .flatten import FlatModel, ModelError, flatten
@@ -89,6 +90,7 @@ def compile_model(program: Program, model_name: str,
     is instructive: the RC circuit then has 20 equations instead of 3.
     """
     flat = flatten(program, model_name)
+    check_balance(flat)
 
     if eliminate_alias_equations:
         alias_result = eliminate_aliases(flat)
@@ -139,8 +141,10 @@ def choose_model(program: Program, model_name: Optional[str] = None,
 
     Example files usually hold a small component library followed by the system
     built from it, so the model that nobody else uses as a component or as a
-    base class is the one that was meant to be simulated.  When that is
-    ambiguous, say so rather than guess.
+    base class is the one that was meant to be simulated.  When several models
+    qualify -- a library may define components that this particular file never
+    uses -- the last one declared wins, which is where the system model
+    conventionally goes.  Pass `model_name` to be explicit.
     """
     if model_name is not None:
         return model_name
@@ -159,12 +163,12 @@ def choose_model(program: Program, model_name: Optional[str] = None,
                     for base in definition.extends}
     roots = [name for name in models
              if name not in used_as_component and name not in used_as_base]
-    if len(roots) == 1:
-        return roots[0]
+    if roots:
+        return roots[-1]
     raise ModelError(
-        f"{where} defines several models that could be simulated "
-        f"({', '.join(roots or models)}); say which one to use, for example "
-        f"load(path, {(roots or models)[0]!r})")
+        f"every model in {where} is used as a component of another one "
+        f"({', '.join(models)}); say which one to simulate, for example "
+        f"load(path, {models[-1]!r})")
 
 
 _choose_model = choose_model

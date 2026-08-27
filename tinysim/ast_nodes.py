@@ -223,6 +223,10 @@ def to_string(expr: Expr, parent_precedence: int = 0) -> str:
                 f"else {to_string(expr.else_expr)}")
         return f"({text})" if parent_precedence > 0 else text
     if isinstance(expr, BinOp):
+        # `a + -b` reads better as `a - b`.
+        if expr.op == "+" and isinstance(expr.right, UnOp) and expr.right.op == "-":
+            return to_string(BinOp("-", expr.left, expr.right.operand),
+                             parent_precedence)
         precedence = _PRECEDENCE[expr.op]
         left = to_string(expr.left, precedence)
         right = to_string(expr.right, precedence + 1)   # +1: keep a-(b-c) parenthesised
