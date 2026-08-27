@@ -12,7 +12,7 @@ order and prints them; each stage is also available on its own.
 import sys
 from typing import Optional
 
-from .analysis import StructuralAnalysis, der_name
+from .analysis import StructuralAnalysis, der_name, find_states
 from .ast_nodes import equation_to_string, to_string
 
 STAGES = ["model", "flat", "connections", "alias", "variables", "incidence",
@@ -99,13 +99,16 @@ def show_alias(compiled, file=None):
 def show_variables(compiled, file=None):
     """How each variable was classified, which is what decides the unknowns."""
     model, analysis = compiled.model, compiled.analysis
+    # Which variables are states does not depend on the matching, so it can be
+    # shown even for a model whose structural analysis failed.
+    states = analysis.states if analysis is not None else find_states(model)
     _heading("5. VARIABLES", file)
     print(f"  {'variable':<24} {'kind':<12} {'start':>10}   description",
           file=_out(file))
     print("  " + "-" * 74, file=_out(file))
     for name, variable in model.variables.items():
         kind = variable.kind
-        if name in analysis.states:
+        if name in states:
             kind = "state"
         elif variable.kind == "continuous":
             kind = "algebraic"
@@ -114,6 +117,8 @@ def show_variables(compiled, file=None):
             start = f"{model.parameter_values.get(name, float('nan')):g}"
         print(f"  {name:<24} {kind:<12} {start:>10}   {variable.description}",
               file=_out(file))
+    if analysis is None:
+        return
     print(f"\n  states     ({len(analysis.states)}): "
           f"{', '.join(analysis.states) or 'none'}", file=_out(file))
     print(f"  unknowns   ({len(analysis.unknowns)}): "

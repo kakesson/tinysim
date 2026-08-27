@@ -93,3 +93,9 @@ def test_when_closed_with_a_name_is_explained():
     with pytest.raises(TinySimSyntaxError, match=r"closed with 'end;'"):
         parse("model A discrete Real x; equation when time > 1 then x = 0; "
               "end when; end A;")
+
+
+def test_modifiers_on_extends_are_rejected_rather_than_ignored():
+    with pytest.raises(TinySimSyntaxError, match="modifiers on 'extends'"):
+        parse("partial model B parameter Real R = 1; Real x; equation x = R; end B;"
+              "model D extends B(R = 5); end D;")

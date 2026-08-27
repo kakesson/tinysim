@@ -451,7 +451,6 @@ class CodeGenerator:
                     _, representative, sign = entry
                     value = ("" if sign > 0 else "-") + mangle(representative)
                 else:
-                    from .alias import substitute
                     value = to_python(to_sympy(entry[1]))
                 lines.append(f"    {mangle(name)} = {value}{self._comment(name)}")
             lines.append("")

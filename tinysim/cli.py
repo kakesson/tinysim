@@ -93,6 +93,14 @@ def main(argv=None) -> int:
             _report_run(result, arguments)
 
     except (TinySimSyntaxError, ModelError) as error:
+        # A model that cannot be solved is still worth looking at: show the
+        # stages that did succeed before reporting what went wrong.
+        partial = getattr(error, "partial_model", None)
+        if partial is not None and arguments.command == "show":
+            explain(partial, stages="model,flat,connections,alias,variables")
+            print("\n" + "=" * 78)
+            print("THE PIPELINE STOPPED HERE")
+            print("=" * 78)
         print(f"error: {error}", file=sys.stderr)
         return 1
     return 0

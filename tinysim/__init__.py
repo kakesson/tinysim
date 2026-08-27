@@ -63,8 +63,10 @@ class CompiledModel:
     flat: FlatModel                       # straight after flattening
     alias: Optional[AliasResult]          # None if alias elimination was skipped
     model: FlatModel                      # the model the code was generated from
-    analysis: StructuralAnalysis
-    code: GeneratedCode
+    #: `analysis` and `code` are None only on the partial model attached to a
+    #: structural error, so that the stages that did succeed can still be shown.
+    analysis: Optional[StructuralAnalysis] = None
+    code: Optional[GeneratedCode] = None
     initialization: Optional[GeneratedCode] = None
     initialization_analysis: Optional[StructuralAnalysis] = None
 
@@ -99,8 +101,17 @@ def compile_model(program: Program, model_name: str,
     else:
         alias_result, model, eliminated = None, flat, {}
 
-    analysis = analyze(model, kind="simulation")
-    code = generate_code(model, analysis, eliminated, function_name="evaluate")
+    # If the model turns out not to be solvable, the stages that already
+    # succeeded are still worth looking at -- that is usually where the mistake
+    # is visible -- so they travel with the exception.
+    partial = CompiledModel(name=model_name, program=program, flat=flat,
+                            alias=alias_result, model=model)
+    try:
+        analysis = analyze(model, kind="simulation")
+        code = generate_code(model, analysis, eliminated, function_name="evaluate")
+    except ModelError as error:
+        error.partial_model = partial
+        raise
 
     initialization = initialization_analysis = None
     if model.initial_equations:

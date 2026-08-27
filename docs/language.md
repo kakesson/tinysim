@@ -140,7 +140,8 @@ names such as `c.p.v`.
 ### Inheritance
 
 A `partial model` may not be simulated on its own; `extends` copies the
-declarations and equations of the base model into the derived model:
+declarations and equations of the base model into the derived model.  It takes
+no modifiers: set a parameter where the component is instantiated instead.
 
 ```modelica
 partial model OnePort "shared by all two-pin electrical components"
@@ -278,7 +279,7 @@ model_def      = [ "partial" ] "model" IDENT
                  [ "equation" { equation } ]
                  "end" [ IDENT ] ";" ;
 
-extends_clause = "extends" IDENT [ modification ] ";" ;
+extends_clause = "extends" IDENT ";" ;
 var_decl       = { prefix } "Real" decl_item { "," decl_item } [ STRING ] ";" ;
 comp_decl      = IDENT decl_item { "," decl_item } [ STRING ] ";" ;
 prefix         = "parameter" | "constant" | "discrete" | "flow" | "potential" ;

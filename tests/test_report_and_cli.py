@@ -109,3 +109,14 @@ def test_cli_reports_errors_without_a_traceback(capsys, tmp_path):
     broken.write_text("model M Real x equation x = 1; end M;")
     assert main(["check", str(broken)]) == 1
     assert "error:" in capsys.readouterr().err
+
+
+def test_show_prints_the_stages_that_succeeded_before_a_failure(capsys, examples):
+    """A model that cannot be solved is still worth looking at."""
+    assert main(["show", str(examples / "pendulum_cartesian.tiny")]) == 1
+    captured = capsys.readouterr()
+    assert "FLATTENED MODEL" in captured.out
+    assert "THE PIPELINE STOPPED HERE" in captured.out
+    assert "x^2 + y^2 = L^2" in captured.out
+    assert "structurally singular" in captured.err
+    assert "Pantelides" in captured.err

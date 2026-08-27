@@ -42,6 +42,13 @@ equations, reduces them to 4, sorts them, and generates this:
     der_c__v = c__i/c__C
 ```
 
+The sorted incidence matrix is the picture worth keeping: dark cells are the
+unknown each equation was chosen to compute, the red outline is an algebraic
+loop, and nothing above the diagonal means the blocks can be solved from the
+top down.
+
+![Incidence matrix before and after sorting](figures/incidence_resistornetwork.png)
+
 ## Install
 
 ```bash
@@ -72,6 +79,8 @@ tinysim show  examples/dcmotor.tiny --stages flat,blt,code
 tinysim check examples/pendulum_cartesian.tiny         # analyse only
 tinysim run   examples/bouncing_ball.tiny --stop 3 --plot h,v
 ```
+
+![RC circuit simulation against the analytic solution](figures/rc_circuit.png)
 
 ## What it covers
 

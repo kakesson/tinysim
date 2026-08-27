@@ -139,9 +139,13 @@ class Parser:
             elif self.accept("equation"):
                 definition.equations.extend(self.parse_equation_section())
             elif self.accept("extends"):
-                definition.extends.append(self.identifier())
-                if self.at("("):            # modifiers on `extends` are parsed
-                    self.parse_modification()   # but not yet applied (see flatten.py)
+                base = self.identifier()
+                if self.at("("):
+                    self.error(
+                        f"TinySim does not support modifiers on 'extends'; "
+                        f"declare the parameter again in {name!r}, or set it "
+                        f"where the component is instantiated")
+                definition.extends.append(base)
                 self.expect(";")
             else:
                 definition.decls.extend(self.parse_declaration())
