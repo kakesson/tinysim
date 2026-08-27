@@ -127,7 +127,33 @@ class Simulator:
                  points: int = 1001, method: str = "Radau",
                  rtol: float = 1e-6, atol: float = 1e-8,
                  max_events: int = 10000,
-                 minimum_event_separation: float = 1e-12) -> SimulationResult:
+                 event_tolerance: float = 1e-8,
+                 minimum_event_separation: float = 1e-9) -> SimulationResult:
+        """
+        Integrate the model from `start` to `stop`.
+
+        The loop below is the whole hybrid simulation algorithm:
+
+            integrate until an event or the stop time
+              -> collect output
+              -> if an event fired, run its body and start again
+
+        Two details make the events behave the way `when` is supposed to.
+
+        First, a `when` fires when its condition *becomes* true, so a condition
+        that already holds at the start of a segment is watched for becoming
+        false instead (`direction = -1`); that re-arms it for next time.
+
+        Second, and less obviously: at the instant an event is handled, its
+        condition sits exactly on the boundary, and integration restarts from
+        there.  A crossing function that is exactly zero at the first step
+        looks like a crossing, so the same event would be found again, and
+        again, forever.  The cure is a small hysteresis band, `event_tolerance`:
+        the condition must be exceeded by that much before it counts as
+        becoming true, and fall that much below before it counts as becoming
+        false.  Real simulators do the same thing, and it is why event times
+        carry a tolerance just like the states do.
+        """
         evaluate_model = self.compiled.code.function
         when_equations = self.model.when_equations
         discretes = self.initial_discretes()
@@ -139,21 +165,35 @@ class Simulator:
         events: List[Event] = []
         message = ""
 
-        def derivatives(t, x):
-            return evaluate_model(t, x, self.parameters, discretes, self.guess)["der"]
+        def evaluate_at(t, state):
+            return evaluate_model(t, state, self.parameters, discretes, self.guess)
 
-        def make_event_function(index):
-            def event_function(t, x):
-                return evaluate_model(t, x, self.parameters, discretes,
-                                      self.guess)["events"][index]
+        def derivatives(t, state):
+            return evaluate_at(t, state)["der"]
+
+        def make_event_function(index, holds_now):
+            """
+            The crossing function handed to the integrator.
+
+            `margin` is positive exactly while the `when` condition is true.
+            Shifting it by the tolerance is the hysteresis described above.
+            """
+            offset = event_tolerance if holds_now else -event_tolerance
+
+            def event_function(t, state):
+                return evaluate_at(t, state)["events"][index] + offset
             event_function.terminal = True
-            event_function.direction = +1.0     # only when the condition becomes true
+            event_function.direction = -1.0 if holds_now else +1.0
             return event_function
-
-        event_functions = [make_event_function(i) for i in range(len(when_equations))]
 
         current_time = start
         while current_time < stop:
+            # Which conditions hold right now?  Those are watched for becoming
+            # false; the others for becoming true.
+            holds = [margin > 0 for margin in evaluate_at(current_time, x)["events"]]
+            event_functions = [make_event_function(index, held)
+                               for index, held in enumerate(holds)]
+
             wanted = times[(times >= current_time) & (times <= stop)]
             if wanted.size == 0 or wanted[0] > current_time:
                 wanted = np.concatenate(([current_time], wanted))
@@ -161,7 +201,7 @@ class Simulator:
             solution = solve_ivp(
                 derivatives, (current_time, stop), x, method=method,
                 t_eval=wanted, events=event_functions or None,
-                rtol=rtol, atol=atol, dense_output=False)
+                rtol=rtol, atol=atol)
             if not solution.success:
                 message = f"the integrator stopped: {solution.message}"
                 break
@@ -170,29 +210,30 @@ class Simulator:
 
             fired = self._which_event(solution)
             if fired is None:
-                current_time = stop
                 break
 
-            index, event_time, event_state = fired
-            if (events and event_time - events[-1].time < minimum_event_separation
-                    and abs(event_time - events[-1].time) < minimum_event_separation):
+            index, event_time, x = fired
+            if holds[index]:
+                # The condition became false again: there is nothing to run,
+                # the point of stopping was to re-arm the `when`.
+                current_time = event_time
+                continue
+
+            if len(events) >= max_events:
+                message = (f"stopping at t = {event_time:.6g}: more than "
+                           f"{max_events} events, which usually means the model "
+                           f"is chattering or shows Zeno behaviour")
+                break
+            if events and event_time - events[-1].time < minimum_event_separation:
                 message = (f"events are arriving infinitely often around "
                            f"t = {event_time:.6g} (Zeno behaviour); stopping here")
                 break
-            if len(events) >= max_events:
-                message = f"more than {max_events} events; stopping at t = {event_time:.6g}"
-                break
 
-            event = self._apply_event(index, event_time, event_state, discretes)
-            events.append(event)
-            # A `reinit` changes the state vector; discrete updates are already
-            # in `discretes`.
-            x = event_state
+            events.append(self._apply_event(index, event_time, x, discretes))
             current_time = event_time
-            # Record the post-event point, so plots show the jump.
-            row = evaluate_model(current_time, x, self.parameters, discretes,
-                                 self.guess)["variables"]
-            collected_time.append(current_time)
+            # Record the post-event values, so the jump is visible in the plot.
+            row = evaluate_at(event_time, x)["variables"]
+            collected_time.append(event_time)
             collected_rows.append(dict(row, **discretes))
 
         return self._assemble(collected_time, collected_rows, events, message)

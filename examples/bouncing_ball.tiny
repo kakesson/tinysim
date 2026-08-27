@@ -12,3 +12,11 @@ equation
   end;
 end BouncingBall;
 
+
+// A warning worth reading: this model shows ZENO BEHAVIOUR.  The bounces come
+// infinitely often in finite time, which no simulator can follow.  Once they
+// are smaller than the event tolerance the contact is no longer detected, the
+// condition h < 0 stays true, it never re-arms, and the ball falls through the
+// floor.  Simulate to 3 s and it looks right; simulate to 20 s and it does
+// not.  The honest fix is to model the resting contact, not to tune the
+// tolerance -- see docs/pipeline.md.
