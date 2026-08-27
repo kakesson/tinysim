@@ -19,6 +19,7 @@ from .flatten import ModelError
 from .lexer import TinySimSyntaxError
 from .parser import parse_file
 from .report import STAGES, explain
+from .simulator import EVENT_POLICIES
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -56,7 +57,15 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--points", type=int, default=1001,
                      help="number of output points")
     run.add_argument("--method", default="Radau",
-                     help="SciPy integrator: Radau, BDF, RK45, ...")
+                     help="variable step: Radau, BDF, RK45, LSODA; "
+                          "fixed step: euler, heun, rk4 (these need --step)")
+    run.add_argument("--step", type=float, default=None,
+                     help="step size for the fixed-step methods")
+    run.add_argument("--events", default="locate",
+                     choices=list(EVENT_POLICIES),
+                     help="locate: find the crossing instant; step: notice it "
+                          "at the end of the step; off: ignore events "
+                          "(default: locate)")
     run.add_argument("--plot", default=None,
                      help="comma-separated variables to plot")
     run.add_argument("--separate", action="store_true",
@@ -96,9 +105,14 @@ def main(argv=None) -> int:
 
         elif arguments.command == "run":
             result = simulate(compiled, stop=arguments.stop, start=arguments.start,
-                              points=arguments.points, method=arguments.method)
+                              points=arguments.points, method=arguments.method,
+                              step=arguments.step, events=arguments.events)
             _report_run(result, arguments)
 
+    except ValueError as error:
+        # A bad combination of solver options, reported without a traceback.
+        print(f"error: {error}", file=sys.stderr)
+        return 1
     except (TinySimSyntaxError, ModelError) as error:
         # A model that cannot be solved is still worth looking at: show the
         # stages that did succeed before reporting what went wrong.
@@ -134,6 +148,7 @@ def _report_run(result, arguments):
     print(f"simulated {result.model_name} from {result.time[0]:g} to "
           f"{result.time[-1]:g} in {len(result.time)} points, "
           f"{len(result.events)} event(s)")
+    print(f"solver: {result.solver}")
     if result.message:
         print(f"note: {result.message}")
     for event in result.events[:20]:

@@ -46,5 +46,8 @@ commit and say so.
   silently.
 - Index reduction is deliberately **out of scope**: a high-index model must be
   detected and explained, not solved. See `examples/pendulum_cartesian.tiny`.
+- Solver choices stay visible and comparable: fixed step (`integrators.py`) as
+  well as SciPy, and `events="locate" | "step" | "off"`. The wrong answers the
+  cheap options give are teaching material, so never quietly correct them.
 - Tests assert against results worked out by hand (analytic solutions,
   textbook formulas), not against whatever the code currently prints.

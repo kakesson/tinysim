@@ -236,7 +236,7 @@ def evaluate(t, x, p, d, guess=None):
     }
     events = []
     return {'der': der, 'variables': variables, 'events': events}
-</code></pre><h2 id="s11">The simulation</h2><p>501 output points over 0 to 5 s, 0 event(s).</p><h3>Values</h3><table><tr><th>variable</th><th>at start</th><th>at end</th></tr><tr><td class='mono'>phi</td><td class='mono'>1</td><td class='mono'>-0.524886</td></tr><tr><td class='mono'>w</td><td class='mono'>0</td><td class='mono'>-1.67589</td></tr></table><h2 id="s12">The experiment script</h2><p>The page above was produced by this script; it is included so the numbers can be traced back to the code that made them.</p><pre><code>"""
+</code></pre><h2 id="s11">The simulation</h2><p><b>Solver:</b> <span class='mono'>Radau, variable step, rtol 1e-06, atol 1e-08, events located exactly</span></p><p>501 output points over 0 to 5 s, 0 event(s).</p><h3>Values</h3><table><tr><th>variable</th><th>at start</th><th>at end</th></tr><tr><td class='mono'>phi</td><td class='mono'>1</td><td class='mono'>-0.524886</td></tr><tr><td class='mono'>w</td><td class='mono'>0</td><td class='mono'>-1.67589</td></tr></table><h2 id="s12">The experiment script</h2><p>The page above was produced by this script; it is included so the numbers can be traced back to the code that made them.</p><pre><code>"""
 Experiment 5 -- the errors are part of the teaching material.
 
     python experiments/05_when_it_does_not_work.py

@@ -71,6 +71,22 @@ result = tinysim.simulate(model, stop=1.0)
 tinysim.plot(result, ["c.v", "r.i"])
 ```
 
+How it is integrated is a choice, and the choice is visible:
+
+```python
+tinysim.simulate(model, stop=1.0)                              # variable step, events located
+tinysim.simulate(model, stop=1.0, method="rk4", step=1e-3)     # fixed step
+tinysim.simulate(model, stop=1.0, method="euler", step=1e-3,
+                 events="step")                                # events noticed a step late
+tinysim.simulate(model, stop=1.0, events="off")                # when-clauses never fire
+```
+
+`method` is a SciPy method (`Radau`, `BDF`, `RK45`, `LSODA`) or a fixed-step one
+written out in `integrators.py` (`euler`, `heun`, `rk4`), and `events` is
+`"locate"`, `"step"` or `"off"`. Simulate the bouncing ball with `events="off"`
+and it falls through the floor; with `events="step"` it bounces late, from
+below the floor. That comparison is `experiments/07_solvers.py`.
+
 From the command line:
 
 ```bash
@@ -79,6 +95,8 @@ tinysim show  examples/dcmotor.tiny --stages flat,blt,code
 tinysim show  examples/dcmotor.tiny --html report.html # ... as a web page
 tinysim check examples/pendulum_cartesian.tiny         # analyse only
 tinysim run   examples/bouncing_ball.tiny --stop 3 --plot h,v
+tinysim run   examples/bouncing_ball.tiny --stop 3 --method rk4 --step 1e-3
+tinysim run   examples/bouncing_ball.tiny --stop 3 --events off
 ```
 
 ![RC circuit simulation against the analytic solution](figures/rc_circuit.png)
@@ -95,6 +113,7 @@ tinysim run   examples/bouncing_ball.tiny --stop 3 --plot h,v
 | Initialization as a system of its own | `examples/tank.tiny` |
 | Events, state jumps, discrete variables | `examples/bouncing_ball.tiny`, `examples/thermostat.tiny` |
 | High index detected and explained, not solved | `examples/pendulum_cartesian.tiny` |
+| Fixed vs variable step, and what locating an event is worth | `experiments/07_solvers.py` |
 
 ## Read it in this order
 
@@ -111,6 +130,7 @@ tinysim run   examples/bouncing_ball.tiny --stop 3 --plot h,v
    .venv/bin/python experiments/04_initialization.py        # steady-state start-up
    .venv/bin/python experiments/05_when_it_does_not_work.py # the error messages
    .venv/bin/python experiments/06_dc_motor.py              # two domains, one rule
+   .venv/bin/python experiments/07_solvers.py               # step size and event handling
    ```
 
    Every experiment also takes `--html`, which writes a standalone page
@@ -125,7 +145,7 @@ tinysim run   examples/bouncing_ball.tiny --stop 3 --plot h,v
    ```
 
 4. The source, in pipeline order: `lexer.py`, `parser.py`, `flatten.py`,
-   `alias.py`, `analysis.py`, `codegen.py`, `simulator.py`.
+   `alias.py`, `analysis.py`, `codegen.py`, `simulator.py`, `integrators.py`.
 
 ## What it deliberately does not do
 

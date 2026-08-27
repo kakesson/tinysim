@@ -280,8 +280,20 @@ start value.
 
 ## Stage 9 -- simulation, and events
 
-Between events the model is an ODE and SciPy integrates it. TinySim writes no
-integrator: the interesting part of a modeling language is the translation.
+Between events the model is an ODE, and something has to integrate it. By
+default that is SciPy, which varies its step size to meet a tolerance. The
+alternative is a fixed step, and `tinysim/integrators.py` writes out three of
+those in full -- `euler`, `heun`, `rk4` -- precisely because they are short
+enough to read:
+
+```python
+tinysim.simulate(model, stop=1.0)                            # variable step
+tinysim.simulate(model, stop=1.0, method="rk4", step=1e-3)   # fixed step
+```
+
+A fixed step is predictable, and it is what runs inside a real-time controller.
+It is also either wasteful or wrong wherever the model's own time scale
+changes, which is the reason variable-step methods exist.
 
 A `when` clause becomes a **zero-crossing function**. `when h < 0` becomes the
 margin `0 - h`, positive exactly while the condition holds, and the integrator
@@ -290,7 +302,27 @@ jumps a state, an assignment updates a discrete variable -- and integration
 restarts from the new state. A hybrid simulation is a *sequence of continuous
 segments*, one per event.
 
-Two details decide whether that works:
+**How hard the simulator looks for that instant is a choice**, and the choice
+is worth measuring rather than assuming:
+
+| `events=` | what it does | what it costs |
+| --- | --- | --- |
+| `"locate"` (default) | finds the crossing instant -- by root finding for a variable step, by bisecting the step for a fixed one | extra evaluations of the model per event |
+| `"step"` | notices the crossing only at the end of the step it happened in | the event is late by up to one step, and the state is already past the boundary |
+| `"off"` | does not look at all | the `when` clauses never fire |
+
+On the bouncing ball with a 1 ms RK4 step, the first bounce should be at
+`sqrt(2h/g) = 0.451524` s:
+
+| `events=` | first bounce | late by | deepest penetration |
+| --- | --- | --- | --- |
+| `locate` | 0.451524 | 5e-16 | -4e-19 m |
+| `step` | 0.452000 | 4.8e-4 s | -2.1e-3 m |
+| `off` | never | -- | it keeps falling (-43 m at t = 3 s) |
+
+`experiments/07_solvers.py` produces that table and the plots behind it.
+
+Two details decide whether event location works at all:
 
 * A `when` fires when its condition *becomes* true. A condition that already
   holds at the start of a segment is watched for becoming false instead, which

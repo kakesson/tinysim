@@ -250,6 +250,8 @@ class Page:
             return
         self._add(self._open(title))
         span = f"{result.time[0]:g} to {result.time[-1]:g} s"
+        self._add(f"<p><b>Solver:</b> <span class='mono'>"
+                  f"{escape(result.solver)}</span></p>")
         self._add(f"<p>{len(result.time)} output points over {span}, "
                   f"{len(result.events)} event(s)."
                   + (f" <b>{escape(result.message)}</b>" if result.message else "")
