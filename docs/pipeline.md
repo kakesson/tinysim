@@ -336,6 +336,143 @@ Two details decide whether event location works at all:
   (`event_tolerance`, default `1e-8`). This is why event times carry a
   tolerance just as the states do.
 
+### The code that finds an event
+
+All of this is about forty lines, spread over four places. It is worth reading
+them in order, because together they are the whole of hybrid simulation.
+
+**1. The margin is built at compile time**, in `CodeGenerator._event_expressions`
+(`tinysim/codegen.py`). A condition is rewritten so that "true" means
+"positive":
+
+```python
+            if condition.op in ("<", "<="):
+                margin = BinOp("-", condition.right, condition.left)   # h < 0     -> 0 - h
+            else:
+                margin = BinOp("-", condition.left, condition.right)   # time > 2  -> time - 2
+```
+
+and the result is emitted into the generated function, where it is computed
+every time the model is evaluated, alongside the derivatives:
+
+```python
+    # ---- event margins: positive while the condition holds ----
+    #        when h < 0
+    events = [-h]
+```
+
+The simulator reads it through one accessor, `Simulator.margins`, and never
+looks at the `when` condition again during integration.
+
+**2. Detection, in the fixed-step loop** (`Simulator._run_fixed_step`):
+
+```python
+        armed = [margin <= 0 for margin in self.margins(start, state)]
+
+        current = start
+        self.record(current, state)
+        while current < stop - 1e-12:
+            length = min(step, stop - current)
+            next_state = stepper(self.derivatives, current, state, length)
+            next_time = current + length
+
+            fired = None
+            if solver.events != "off":
+                fired = self._crossing_in_step(stepper, current, state, length,
+                                               armed, event_tolerance,
+                                               locate=solver.events == "locate")
+
+            if fired is None:
+                for index, margin in enumerate(self.margins(next_time, next_state)):
+                    if margin < -event_tolerance:
+                        armed[index] = True         # re-arm for the next crossing
+                state, current = next_state, next_time
+                self.record(current, state)
+                continue
+
+            index, event_time, event_state = fired
+            self.record(event_time, event_state)    # the state as the event begins
+            self.events.append(self._apply_event(index, event_time, event_state))
+            armed[index] = False
+            state, current = event_state, event_time
+            self.record(current, state)
+```
+
+`armed` is the rising-edge rule made concrete: a condition that already holds
+cannot fire, and it becomes eligible again only once its margin has gone
+properly negative. And when an event does fire, `current` becomes the *event
+time*, not the end of the step: the step is abandoned and the integration
+restarts from the crossing.
+
+**3. The bisection** (`Simulator._crossing_in_step`) is what `events="locate"`
+buys:
+
+```python
+        end_state = stepper(self.derivatives, t, state, length)
+        end_margins = self.margins(t + length, end_state)
+        crossed = [index for index, margin in enumerate(end_margins)
+                   if armed[index] and margin > event_tolerance]
+        if not crossed:
+            return None
+
+        if not locate:
+            index = crossed[0]
+            return index, t + length, end_state          # events="step" stops here
+
+        earliest = None
+        for index in crossed:
+            low, high = 0.0, length          # margin <= 0 at low, > 0 at high
+            for _ in range(60):
+                middle = (low + high) / 2
+                trial = stepper(self.derivatives, t, state, middle)
+                if self.margins(t + middle, trial)[index] > 0:
+                    high = middle
+                else:
+                    low = middle
+            crossing_state = stepper(self.derivatives, t, state, high)
+            if earliest is None or t + high < earliest[1]:
+                earliest = (index, t + high, crossing_state)
+        return earliest
+```
+
+The detail worth pausing on: **the bisection variable is the step length, not
+the time.** Each trial retakes the *same* step from the *same* starting state
+with a shorter length -- `stepper(self.derivatives, t, state, middle)` -- so
+every candidate state is produced by the integration formula the run is
+already using, not by interpolating between two answers. `low` always has
+margin <= 0 and `high` always has margin > 0, so the bracket contains the
+crossing throughout, and the state that is returned is the one at `high`,
+just on the true side of the boundary.
+
+On the ball with a 5 ms step, the bracket starts as `[0, 0.005]` with margins
+`-0.007` and `+0.015`. Sixty halvings shrink it to `5e-3 * 2**-60`, far below
+what double precision can express, which is why the located bounce time matches
+`sqrt(2h/g)` to 4e-16. It also costs sixty extra evaluations of the model for
+that one event -- the price of `events="locate"`, and the reason it is a switch
+rather than a law.
+
+If two conditions cross in the same step, each is bisected separately and the
+*earliest* one wins; the others stay armed and are caught in a later step.
+
+**4. The variable-step path does not bisect anything**
+(`Simulator._scipy_events`). It hands the same margin to SciPy as a terminal
+event and lets `solve_ivp` use its own root finder on its dense output:
+
+```python
+            def event_function(t, state):
+                return self.evaluate_at(t, state)["events"][index] + offset
+            event_function.terminal = True
+            event_function.direction = -1.0 if holds_now else +1.0
+```
+
+`offset` is the hysteresis band described above, and `direction` is the
+rising-edge rule in the form SciPy wants it: a condition that already holds is
+watched for becoming *false*, which is how it re-arms.
+
+So both paths agree on what an event *is* -- a rising zero crossing of a
+compiled margin -- and differ only in how the instant is pinned down: sixty
+halvings of the step in one, a root finder on the interpolant in the other.
+
 ### Zeno behaviour
 
 The bouncing ball bounces infinitely often in finite time. No simulator can
@@ -399,4 +536,5 @@ choosing coordinates is part of modeling.
 | 4-6. Structure | `tinysim/analysis.py` | states, unknowns, incidence, matching, BLT blocks |
 | 7. Code generation | `tinysim/codegen.py` | readable Python source, compiled |
 | 8-9. Simulation | `tinysim/simulator.py` | time series, events |
+| Fixed-step methods | `tinysim/integrators.py` | `euler`, `heun`, `rk4`, written out |
 | Reporting | `tinysim/report.py`, `plotting.py` | everything above, printed or drawn |
