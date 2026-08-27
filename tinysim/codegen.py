@@ -20,6 +20,7 @@ are mangled to `c__v` in the generated code.  The mapping is printed in the
 header so the code stays readable.
 """
 
+import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -100,9 +101,33 @@ def to_sympy(expr: Expr):
     raise TypeError(f"cannot translate {expr!r} to SymPy")
 
 
-def to_python(sympy_expr) -> str:
-    """Print a SymPy expression as a line of Python source."""
-    text = sympy.pycode(sympy_expr, fully_qualified_modules=False)
+def unmangle(text: str, model: FlatModel, states: List[str]) -> str:
+    """
+    Put the model's own names back into a generated expression.
+
+    `c__i = r__v/r__R` reads as `c.i = r.v/r.R` once the mangling is undone,
+    which is how a person would write it.  Longest names are replaced first, so
+    that `c__v` inside `der_c__v` is not rewritten on its own.
+    """
+    replacements = {mangle(name): name for name in model.variables}
+    replacements.update({mangle(der_name(state)): der_name(state)
+                         for state in states})
+    replacements["t"] = "time"
+    for mangled in sorted(replacements, key=len, reverse=True):
+        text = re.sub(rf"\b{re.escape(mangled)}\b", replacements[mangled], text)
+    return text.replace("**", "^")
+
+
+def to_python(sympy_expr, keep_order: bool = False) -> str:
+    """
+    Print a SymPy expression as a line of Python source.
+
+    `keep_order` prints the terms of a sum in the order they are stored rather
+    than SymPy's canonical order, which is what lets the readable form show
+    `qin - A*der(h)` where the generated code shows `-A*der_h + qin`.
+    """
+    settings = {"order": "none"} if keep_order else {}
+    text = sympy.pycode(sympy_expr, fully_qualified_modules=False, **settings)
     if "ImmutableDenseMatrix" in text or "Symbol" in text:      # pragma: no cover
         raise ModelError(f"cannot generate code for {sympy_expr}")
     return text
@@ -120,10 +145,19 @@ class BlockCode:
     unknowns: List[str]
     method: str            # 'explicit' | 'symbolic' | 'linear system' | 'newton'
     lines: List[str] = field(default_factory=list)
+    #: For a block solved in closed form: the assignment, written with the
+    #: model's own names -- `c.i := r.v/r.R`, not `c__i = r__v/r__R`.  This is
+    #: what the reports show when they explain *how* the system is solved,
+    #: without dropping the reader into generated Python.
+    solution: Optional[str] = None
 
     @property
     def size(self) -> int:
         return len(self.equations)
+
+    @property
+    def is_loop(self) -> bool:
+        return len(self.equations) > 1
 
 
 @dataclass
@@ -135,6 +169,9 @@ class GeneratedCode:
     state_names: List[str]
     variable_names: List[str]
     event_conditions: List[str]
+    #: The crossing function of each `when`, in the model's own names: the
+    #: condition `h < 0` is watched as the margin `-h`.
+    event_margins: List[str] = field(default_factory=list)
 
     def __str__(self) -> str:              # so `print(code)` shows the source
         return self.source
@@ -151,6 +188,7 @@ class CodeGenerator:
         self.eliminated = eliminated or {}
         self.function_name = function_name
         self.blocks: List[BlockCode] = []
+        self._solutions: Dict[str, str] = {}
         self._check_name_clashes()
 
     def _check_name_clashes(self):
@@ -231,6 +269,9 @@ class CodeGenerator:
             blocks=self.blocks, state_names=list(states),
             variable_names=self._output_names(),
             event_conditions=[c for c, _ in self._event_expressions()],
+            event_margins=[unmangle(to_python(margin), self.model,
+                                    self.analysis.states)
+                           for _, margin in self._event_expressions()],
         )
 
     def _header(self) -> List[str]:
@@ -311,8 +352,22 @@ class CodeGenerator:
         body.append("")
 
         self.blocks.append(BlockCode(index=position, equations=list(block),
-                                     unknowns=unknowns, method=method, lines=lines))
+                                     unknowns=unknowns, method=method, lines=lines,
+                                     solution=self._solutions.get(unknowns[0])
+                                     if len(unknowns) == 1 else None))
         return body
+
+    def _readable(self, unknown: str, solution) -> str:
+        """`c.i := r.v/r.R` -- the assignment as a person would write it."""
+        # SymPy stores the terms of a sum in its own order, which often puts a
+        # negative one first: `-c.v + src.V`.  Positive terms first reads the
+        # way the equation was written.
+        if solution.is_Add:
+            ordered = sorted(solution.args, key=lambda term:
+                             term.could_extract_minus_sign())
+            solution = sympy.Add(*ordered, evaluate=False)
+        return (f"{unknown} := "
+                f"{unmangle(to_python(solution, keep_order=True), self.model, self.analysis.states)}")
 
     def _emit_scalar_block(self, residual, symbol, unknown, equation, position):
         """One equation, one unknown."""
@@ -328,6 +383,7 @@ class CodeGenerator:
             # residual = coefficient * unknown + rest  =>  unknown = -rest / coefficient
             rest = sympy.simplify(residual - coefficient * symbol)
             solution = sympy.simplify(-rest / coefficient)
+            self._solutions[unknown] = self._readable(unknown, solution)
             return [f"    {mangle(unknown)} = {to_python(solution)}"], "explicit"
 
         # Nonlinear: ask SymPy for a closed-form solution before giving up.
@@ -336,8 +392,9 @@ class CodeGenerator:
         except Exception:                                   # pragma: no cover
             solutions = []
         if len(solutions) == 1:
-            return ([f"    {mangle(unknown)} = {to_python(sympy.simplify(solutions[0]))}"],
-                    "symbolic")
+            solution = sympy.simplify(solutions[0])
+            self._solutions[unknown] = self._readable(unknown, solution)
+            return ([f"    {mangle(unknown)} = {to_python(solution)}"], "symbolic")
 
         # Fall back to a numerical solution of the single equation.
         guess = self._start_value(unknown)

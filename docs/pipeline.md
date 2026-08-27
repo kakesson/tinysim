@@ -226,6 +226,48 @@ equations must be solved together.
 
 ## Stage 7 -- generating code
 
+### First, the same thing in words
+
+Before any Python appears, the reports state the procedure that follows from
+the sorting -- what happens to each block, what happens before the first step,
+and what happens when an event interrupts:
+
+```bash
+tinysim show examples/diode_circuit.tiny --stages procedure
+```
+
+```
+  AT EVERY EVALUATION  --  the integrator gives c.v and time, and asks for the derivatives
+      1. src.v := src.slope*time      # rearranged from src.v = src.slope * time
+      2. r1.v := src.v - c.v          # rearranged from r1.v = src.v - c.v
+      3. r1.i := r1.v/r1.R            # rearranged from r1.v = r1.R * r1.i
+      4. solve simultaneously for r2.v, d.v, d.i:
+           r2.v = r2.R * d.i
+           d.v = c.v - r2.v
+           d.i = d.Isat * (exp(d.v / d.Vt) - 1)
+         # a circle of 3 equations, not linear in those unknowns:
+         # solved by iteration from the start values, then from the previous solution
+      5. c.i := r1.i - d.i            # rearranged from -r1.i + d.i + c.i = 0
+      6. der(c.v) := c.i/c.C          # rearranged from c.C * der(c.v) = c.i
+```
+
+Three things are worth reading off that listing. A block of size 1 that is
+linear in its unknown becomes an **assignment**, and the rearrangement is
+shown: equation 3 was written as `r1.v = r1.R * r1.i` and is used to compute
+the current. A block of size 1 that is nonlinear is solved in closed form when
+SymPy manages -- the tank's `h := q^2/k^2` comes from `q = k * sqrt(h)` -- and
+numerically when it does not. A block of size greater than 1 is an algebraic
+loop, and the listing says which kind: linear ones are a single matrix solve,
+nonlinear ones an iteration that starts from the `start` values and then from
+the previous accepted solution.
+
+The same section covers the hybrid part, because that is also "how it is
+solved": which crossing function each `when` became, what its body does to a
+state or a discrete variable, and that integration restarts afterwards. The
+HTML reports show it between the solution order and the generated code.
+
+### Then the code
+
 Each block becomes a few lines of Python. A block of size 1 that is linear in
 its unknown is solved symbolically with SymPy and becomes an assignment; a
 nonlinear one is solved symbolically if SymPy manages and otherwise becomes a

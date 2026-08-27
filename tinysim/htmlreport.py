@@ -102,6 +102,15 @@ td.inloop { outline: 2px solid var(--loop); outline-offset: -2px; }
 .block .head { font-weight: 600; }
 .block .eq { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .82rem;
              color: var(--muted); }
+ol.procedure { padding-left: 1.4rem; }
+ol.procedure > li { margin: .55rem 0; }
+ol.procedure code { font-size: .86rem; }
+.assign { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 600; }
+.how { color: var(--muted); font-size: .84rem; display: block; margin-top: .1rem; }
+.phase { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+         padding: .9rem 1.1rem; margin: 1rem 0; }
+.phase > h4 { margin: 0 0 .5rem; font-size: .95rem; letter-spacing: .02em; }
+.phase p { margin: .4rem 0; }
 figure { margin: 1.5rem 0; }
 figure img { max-width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 6px;
              background: #fff; }
@@ -199,6 +208,7 @@ class Page:
             self._add(_incidence(compiled.analysis, sorted_form=True))
             self._add(_blocks(compiled.analysis))
         if compiled.code is not None:
+            self._add(_solution_procedure(compiled))
             self._add("<h3>The generated simulation model</h3>")
             self._add("<p>This is the code that actually runs. It is generated "
                       "from the sorted blocks above, one block at a time.</p>")
@@ -210,8 +220,6 @@ class Page:
                       "unknowns too.</p>")
             self._add(_blocks(compiled.initialization_analysis))
             self._add(f"<pre><code>{escape(compiled.initialization.source)}</code></pre>")
-        if compiled.model.when_equations:
-            self._add(_events(compiled))
 
     @staticmethod
     def _counts(compiled) -> str:
@@ -501,6 +509,217 @@ def _blocks(analysis: StructuralAnalysis) -> str:
     return ("<h3>Solution order</h3>"
             "<p>Tarjan's algorithm returns the blocks already in the order they "
             "can be solved.</p>" + "".join(parts))
+
+
+def _solution_procedure(compiled) -> str:
+    """
+    How the sorted equations are actually solved, without any Python.
+
+    The blocks above say *what* is solved in *which order*; this says what
+    happens to each one -- rearranged into an assignment, handed to a matrix
+    solve, or iterated -- and what happens around them: the initialization
+    before the first step, and the events that interrupt everything.
+    """
+    phases = [_initialization_phase(compiled), _continuous_phase(compiled)]
+    if compiled.model.when_equations:
+        phases.append(_event_phase(compiled))
+    phases.append(_between_steps_phase(compiled))
+
+    numbered = [phase.replace("<h4>", f"<h4>{number}. ", 1)
+                for number, phase in enumerate(phases, start=1)]
+    return ("<h3>How this system is actually solved</h3>"
+            "<p>The blocks above are the plan. This is the procedure that "
+            "follows from it: what happens to each block, what happens before "
+            "the first step, and what happens when an event interrupts.</p>"
+            + "".join(numbered))
+
+
+def _initialization_phase(compiled) -> str:
+    """What happens once, before the integration begins."""
+    from .evaluator import evaluate
+    model, analysis = compiled.model, compiled.analysis
+    lines = ['<div class="phase"><h4>Once, before the first step: '
+             'initialization</h4>']
+
+    if compiled.initialization is not None:
+        lines.append(
+            "<p>This model has <code>initial equation</code>s, so the initial "
+            "state is <em>computed</em> rather than given. A second system is "
+            f"solved once at the start time -- "
+            f"{len(compiled.initialization_analysis.equations)} equations for "
+            f"{len(compiled.initialization_analysis.unknowns)} unknowns, the "
+            "states among them -- with its own matching and its own solution "
+            "order:</p>")
+        lines.append(_procedure_list(compiled.initialization_analysis,
+                                     compiled.initialization.blocks))
+    elif analysis.states:
+        assignments = []
+        for state in analysis.states:
+            variable = model.variables[state]
+            try:
+                value = ("0" if variable.start is None
+                         else f"{evaluate(variable.start, model.parameter_values):g}")
+            except Exception:                                   # pragma: no cover
+                value = "its start value"
+            assignments.append(f"<code class='assign'>{escape(state)} = {value}</code>")
+        lines.append("<p>Every state simply takes its <code>start</code> value; "
+                     "no equations have to be solved yet:</p><p>"
+                     + ", ".join(assignments) + "</p>")
+    else:
+        lines.append("<p>There are no states, so there is nothing to "
+                     "initialize: the whole model is algebraic and is solved "
+                     "afresh at every output point.</p>")
+
+    discretes = model.discrete_variables()
+    if discretes:
+        values = ", ".join(
+            f"<code class='assign'>{escape(name)} = "
+            f"{escape(to_string(model.variables[name].start))}</code>"
+            for name in discretes)
+        lines.append(f"<p>The discrete variables take their start values too: "
+                     f"{values}. Nothing computes them until an event does.</p>")
+    return "".join(lines) + "</div>"
+
+
+def _continuous_phase(compiled) -> str:
+    """What happens every time the integrator asks for the derivatives."""
+    model, analysis = compiled.model, compiled.analysis
+    known = []
+    if analysis.states:
+        known.append("the states " + ", ".join(f"<code>{escape(s)}</code>"
+                                               for s in analysis.states))
+    if model.parameter_values:
+        known.append("the parameters")
+    if model.discrete_variables():
+        known.append("the discrete variables, held constant since the last event")
+    known.append("<code>time</code>")
+
+    derivatives = (", ".join(f"<code>der({escape(state)})</code>"
+                             for state in analysis.states)
+                   or "nothing -- there are no states")
+
+    return (
+        '<div class="phase"><h4>At every evaluation: the continuous '
+        'system</h4>'
+        f"<p>The integrator supplies {', '.join(known)}, and asks what the "
+        "derivatives are. Everything else is unknown and has to be computed, "
+        "in the order the sorting found:</p>"
+        + _procedure_list(analysis, compiled.code.blocks)
+        + f"<p>The derivatives {derivatives} go back to the integrator. Every "
+        "other value computed on the way is kept as a result, and the "
+        "variables that alias elimination removed are recovered from the ones "
+        "that survived.</p></div>")
+
+
+def _procedure_list(analysis, blocks) -> str:
+    """One numbered step per block, saying how that block is solved."""
+    steps = []
+    for block in blocks:
+        equations = [analysis.equations[index].source for index in block.equations]
+        if block.solution is not None and not block.is_loop:
+            how = ("rearranged directly" if block.method == "explicit"
+                   else "solved symbolically")
+            steps.append(
+                f"<li><span class='assign'>{escape(block.solution)}</span>"
+                f"<span class='how'>{how} from "
+                f"<code>{escape(equations[0])}</code></span></li>")
+        elif not block.is_loop:
+            steps.append(
+                f"<li>solve <code>{escape(equations[0])}</code> for "
+                f"<span class='assign'>{escape(block.unknowns[0])}</span>"
+                "<span class='how'>nothing rearranges this one, so it is "
+                "solved numerically: a root finder starts from the "
+                "<code>start</code> value and, after that, from the previous "
+                "accepted solution</span></li>")
+        else:
+            unknowns = ", ".join(f"<code>{escape(u)}</code>" for u in block.unknowns)
+            listing = "".join(f"<div class='eq'>{escape(text)}</div>"
+                              for text in equations)
+            if block.method == "linear system":
+                how = (f"These {len(equations)} equations depend on each other "
+                       "in a circle, so none of them can be solved on its own. "
+                       "They are linear in those unknowns, so the block is one "
+                       "matrix solve <span class='mono'>A x = b</span>: direct, "
+                       "and exact up to rounding.")
+            else:
+                how = (f"These {len(equations)} equations depend on each other "
+                       "in a circle, and they are <em>not</em> linear in those "
+                       "unknowns, so no rearrangement makes them explicit. The "
+                       "block is solved by iteration, starting from the "
+                       "<code>start</code> values and thereafter from the "
+                       "previous accepted solution. Failure to converge stops "
+                       "the simulation rather than passing on a meaningless "
+                       "number.")
+            steps.append(f"<li>solve simultaneously for {unknowns}:{listing}"
+                         f"<span class='how'>{how}</span></li>")
+    return f"<ol class='procedure'>{''.join(steps)}</ol>"
+
+
+def _event_phase(compiled) -> str:
+    """What interrupts the continuous system, and what happens then."""
+    model, code = compiled.model, compiled.code
+    margins = []
+    for position, when_equation in enumerate(model.when_equations):
+        condition = to_string(when_equation.condition)
+        margin = (code.event_margins[position]
+                  if position < len(code.event_margins) else "")
+        margins.append(
+            f"<tr><td class='mono'>when {escape(condition)}</td>"
+            f"<td class='mono'>{escape(margin)}</td></tr>")
+
+    bodies = []
+    for when_equation in model.when_equations:
+        actions = []
+        for statement in when_equation.body:
+            if type(statement).__name__ == "Reinit":
+                actions.append(
+                    f"the state <code>{escape(statement.name)}</code> jumps to "
+                    f"<span class='assign'>"
+                    f"{escape(to_string(statement.value))}</span>")
+            else:
+                actions.append(
+                    f"the discrete variable <code>{escape(statement.name)}</code> "
+                    f"becomes <span class='assign'>"
+                    f"{escape(to_string(statement.value))}</span>")
+        bodies.append(f"<li>when <code>{escape(to_string(when_equation.condition))}"
+                      f"</code> becomes true: " + ", and ".join(actions) + "</li>")
+
+    return (
+        '<div class="phase"><h4>Whenever a condition changes: the hybrid '
+        'part</h4>'
+        "<p>A <code>when</code> is not tested at the output points. Each "
+        "condition was compiled into a <em>crossing function</em> that is "
+        "positive exactly while the condition holds, and it is computed "
+        "alongside the derivatives at every evaluation above:</p>"
+        "<table><tr><th>condition</th><th>watched as</th></tr>"
+        + "".join(margins) + "</table>"
+        "<p>The instant a crossing function passes zero upwards, the "
+        "continuous system stops -- it is only valid until then -- and the body "
+        "of that <code>when</code> runs:</p>"
+        f"<ol class='procedure'>{''.join(bodies)}</ol>"
+        "<p>Integration then <em>restarts</em> from the updated state: a "
+        "hybrid simulation is a sequence of continuous segments, one per "
+        "event, not one long solve. A condition that is already true cannot "
+        "fire again until it has gone false, which is what makes "
+        "<code>when</code> a rising edge rather than a test.</p>"
+        "<p>How hard the simulator works to find that instant is chosen when "
+        "you simulate, not here: <code>events=\"locate\"</code> finds the "
+        "crossing itself, <code>\"step\"</code> notices it only at the end of "
+        "the step it happened in, and <code>\"off\"</code> never looks.</p>"
+        "</div>")
+
+
+def _between_steps_phase(compiled) -> str:
+    solver_note = (
+        "Between evaluations the integrator advances the states -- either "
+        "choosing its own step size to meet a tolerance, or taking the fixed "
+        "step you gave it. That is the only part of this whole pipeline that "
+        "TinySim does not do itself."
+        if compiled.analysis.states else
+        "This model has no states, so there is nothing to advance: the system "
+        "above is simply solved again at each output point.")
+    return f'<div class="phase"><h4>In between: the integrator</h4>' \
+           f'<p>{solver_note}</p></div>'
 
 
 def _events(compiled) -> str:

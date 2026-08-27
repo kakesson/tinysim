@@ -95,7 +95,7 @@ From the command line:
 
 ```bash
 tinysim show  examples/electrical.tiny                 # the whole pipeline
-tinysim show  examples/dcmotor.tiny --stages flat,blt,code
+tinysim show  examples/dcmotor.tiny --stages flat,blt,procedure,code
 tinysim show  examples/dcmotor.tiny --html report.html # ... as a web page
 tinysim check examples/pendulum_cartesian.tiny         # analyse only
 tinysim run   examples/bouncing_ball.tiny --stop 3 --plot h,v
@@ -112,6 +112,7 @@ tinysim run   examples/bouncing_ball.tiny --stop 3 --events off
 | Acausal composition: `connect` becomes Kirchhoff's laws | `examples/electrical.tiny` |
 | The same rules in two physical domains at once | `examples/dcmotor.tiny` |
 | Flattening, alias elimination, matching, BLT sorting | `tinysim show ... --stages flat,alias,matching,blt` |
+| How the sorted blocks are solved, without reading Python | `tinysim show ... --stages procedure` |
 | Linear algebraic loops, solved as a matrix equation | `examples/resistor_network.tiny` |
 | Nonlinear algebraic loops, solved by iteration | `examples/diode_circuit.tiny` |
 | Initialization as a system of its own | `examples/tank.tiny` |

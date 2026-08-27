@@ -25,8 +25,9 @@ def test_explain_shows_every_stage_of_the_pipeline():
     for heading in ["1. MODEL", "2. FLATTENED MODEL", "3. CONNECTION SETS",
                     "4. ALIAS ELIMINATION", "5. VARIABLES", "6. INCIDENCE MATRIX",
                     "7. MATCHING", "8. INCIDENCE MATRIX", "9. BLT SORTING",
-                    "10. GENERATED SIMULATION CODE", "11. INITIALIZATION",
-                    "12. EVENTS"]:
+                    "10. HOW THIS SYSTEM IS ACTUALLY SOLVED",
+                    "11. GENERATED SIMULATION CODE", "12. INITIALIZATION",
+                    "13. EVENTS"]:
         assert heading in text
 
 
@@ -137,3 +138,70 @@ def test_cli_html_report_of_a_model_that_does_not_compile(tmp_path, examples):
     text = target.read_text()
     assert "structurally singular" in text
     assert "The stages that did succeed" in text
+
+
+# ---------------------------------------------------------------------------
+# The solution procedure: how the sorted blocks are actually solved
+# ---------------------------------------------------------------------------
+
+def procedure_of(model) -> str:
+    return explain_to_string(model, "procedure")
+
+
+def test_the_procedure_explains_an_explicit_chain():
+    text = procedure_of(tinysim.load_source(RC_CIRCUIT, "RC"))
+    assert "HOW THIS SYSTEM IS ACTUALLY SOLVED" in text
+    assert "c.v = 0" in text                          # the start value
+    assert "c.i := r.v/r.R" in text                   # model names, not c__i
+    assert "der(c.v) goes back to the integrator" in text
+    assert "c__i" not in text                         # no generated Python here
+
+
+def test_the_procedure_explains_a_linear_loop(examples):
+    text = procedure_of(tinysim.load(examples / "resistor_network.tiny"))
+    assert "solve simultaneously for" in text
+    assert "linear in those unknowns" in text
+    assert "one matrix solve A x = b, no iteration" in text
+
+
+def test_the_procedure_explains_a_nonlinear_loop(examples):
+    text = procedure_of(tinysim.load(examples / "diode_circuit.tiny"))
+    assert "not linear in those unknowns" in text
+    assert "solved by iteration" in text
+    assert "d.i = d.Isat * (exp(d.v / d.Vt) - 1)" in text
+
+
+def test_the_procedure_explains_the_initialization_system(examples):
+    text = procedure_of(tinysim.load(examples / "tank.tiny"))
+    assert "initial equations" in text
+    assert "der(h) := 0" in text                      # solved as its own system
+    assert "h := q^2/k^2" in text
+
+
+def test_the_procedure_explains_a_state_jump(examples):
+    text = procedure_of(tinysim.load(examples / "bouncing_ball.tiny"))
+    assert "is watched as the crossing function  -h" in text
+    assert "the state v jumps to -(e * v)" in text
+    assert "restarts from the updated state" in text
+
+
+def test_the_procedure_explains_discrete_variables(examples):
+    text = procedure_of(tinysim.load(examples / "thermostat.tiny"))
+    assert "Discrete on starts at 1" in text
+    assert "the discrete on becomes 0" in text
+    assert "T - Tset - band" in text                  # the crossing function
+
+
+def test_the_procedure_appears_in_the_html_between_sorting_and_code(tmp_path,
+                                                                    examples):
+    from tinysim.htmlreport import Page
+    model = tinysim.load(examples / "bouncing_ball.tiny", "BouncingBall")
+    page = Page("procedure", output=tmp_path / "p.html")
+    page.add_model(model)
+    text = page.finish().read_text()
+    assert (text.index("Solution order")
+            < text.index("How this system is actually solved")
+            < text.index("The generated simulation model"))
+    for phrase in ["1. Once, before the first step", "2. At every evaluation",
+                   "3. Whenever a condition changes", "4. In between"]:
+        assert phrase in text
