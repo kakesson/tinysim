@@ -98,6 +98,10 @@ def compile_model(program: Program, model_name: str,
     """
     flat = flatten(program, model_name)
     check_balance(flat)
+    # Contracts are resolved and name-checked here, before the structural
+    # analysis: a model that turns out to be unsolvable should still report
+    # what it was supposed to promise.
+    contracts = attach_contracts(program, flat)
 
     if eliminate_alias_equations:
         alias_result = eliminate_aliases(flat)
@@ -110,7 +114,8 @@ def compile_model(program: Program, model_name: str,
     # succeeded are still worth looking at -- that is usually where the mistake
     # is visible -- so they travel with the exception.
     partial = CompiledModel(name=model_name, program=program, flat=flat,
-                            alias=alias_result, model=model)
+                            alias=alias_result, model=model,
+                            contract_instances=contracts)
     try:
         analysis = analyze(model, kind="simulation")
         code = generate_code(model, analysis, eliminated, function_name="evaluate")
@@ -128,7 +133,7 @@ def compile_model(program: Program, model_name: str,
                          alias=alias_result, model=model, analysis=analysis,
                          code=code, initialization=initialization,
                          initialization_analysis=initialization_analysis,
-                         contract_instances=attach_contracts(program, flat))
+                         contract_instances=contracts)
 
 
 def attach_contracts(program: Program, flat: FlatModel) -> List[tuple]:

@@ -37,8 +37,8 @@ docs/contracts.md       assume-guarantee contracts over Signal Temporal Logic
 docs/handoff.md         this file
 prompts/                the master prompt and the phase prompts
 .claude/agents/         four review subagents
-examples/*.tiny         nine models, one teaching point each
-experiments/0*.py       eight scripts, each with --html
+examples/*.tiny         nine models, one teaching point each, each with a contract
+experiments/0*.py       nine scripts, each with --html and each reporting contracts
 html/                   the generated reports, committed
 figures/                the generated figures, committed
 tests/                  112 tests, asserting against hand calculations

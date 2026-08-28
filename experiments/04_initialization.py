@@ -71,6 +71,15 @@ figure.tight_layout()
 figure.savefig(FIGURES / "tank_initialization.png", dpi=150)
 print(f"wrote {FIGURES / 'tank_initialization.png'}")
 page.add_result(steady, ["h", "q"], title="The simulation - steady start")
+contracts = tinysim.check_contracts(tank, steady)
+print(f"\ncontracts: {contracts.summary()}")
+page.add_text("""
+    The tank's contract says what starting in steady state is supposed to mean:
+    the inflow and the outflow stay balanced, and the level does not drift. It
+    is the initial equation, stated as a requirement rather than as an equation
+    - and checked against the run rather than solved.
+    """)
+page.add_contracts(tank, contracts)
 page.add_figure(figure, "With the initial equation the level never moves. "
                         "Given an arbitrary start value instead, the same "
                         "model has to settle first.")

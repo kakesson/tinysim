@@ -67,7 +67,22 @@ result = tinysim.simulate(model, stop=1.0, points=501)
 page.add_result(result, ["c.v", "c.i", "r.v", "r.i"])
 
 # ---------------------------------------------------------------------------
-# 3. Compare against the analytic solution, v(t) = V (1 - exp(-t / RC)).
+# 3. Check what the model promised.
+# ---------------------------------------------------------------------------
+contracts = tinysim.check_contracts(model, result)
+print(f"\ncontracts: {contracts.summary()}")
+for item in contracts.results:
+    print(f"  {item.title:30s} {item.verdict.upper()}")
+page.add_text("""
+    The model file also carries contracts - one for the circuit and one for the
+    resistor class, checked for the instance r. Each clause comes back with a
+    margin, so 'satisfied' says how much room there was. The tightest of them
+    holds by half a millivolt.
+    """)
+page.add_contracts(model, contracts)
+
+# ---------------------------------------------------------------------------
+# 4. Compare against the analytic solution, v(t) = V (1 - exp(-t / RC)).
 # ---------------------------------------------------------------------------
 V, R, C = 10.0, 100.0, 1e-3
 exact = V * (1 - np.exp(-result.time / (R * C)))

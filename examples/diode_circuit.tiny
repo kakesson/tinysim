@@ -81,3 +81,13 @@ equation
   connect(r2.n, gnd.p);
   connect(src.n, gnd.p);
 end DiodeCircuit;
+
+contract DiodeBehavesLikeADiode for DiodeCircuit
+  "the diode conducts one way only, and the loop solver stays consistent"
+assume
+  always src.slope > 0;
+guarantee
+  always d.i >= -d.Isat;                            // it never conducts backwards
+  always abs(c.v - (d.v + r2.v)) <= 1e-9;           // Kirchhoff around the branch
+  whenever d.v > 1 then d.i > 0.0001 within [0, 0.01];
+end DiodeBehavesLikeADiode;

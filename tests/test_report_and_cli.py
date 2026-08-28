@@ -1,6 +1,7 @@
 """The report, the plots and the command line -- the parts students touch."""
 
 import io
+import pathlib
 
 import matplotlib
 import pytest
@@ -121,6 +122,35 @@ def test_show_prints_the_stages_that_succeeded_before_a_failure(capsys, examples
     assert "x^2 + y^2 = L^2" in captured.out
     assert "structurally singular" in captured.err
     assert "Pantelides" in captured.err
+
+
+EXPERIMENTS = pathlib.Path(__file__).resolve().parents[1] / "experiments"
+GENERATED = pathlib.Path(__file__).resolve().parents[1] / "html"
+
+
+def test_every_experiment_reports_its_contracts():
+    """A page that shows a model should show what the model promised."""
+    without = [script.name for script in sorted(EXPERIMENTS.glob("0*.py"))
+               if "add_contracts" not in script.read_text()]
+    assert without == [], f"no contracts reported in: {', '.join(without)}"
+
+
+@pytest.mark.skipif(not GENERATED.exists(),
+                    reason="the reports have not been generated")
+def test_every_generated_report_contains_a_contract():
+    for page in sorted(GENERATED.glob("0*.html")):
+        text = page.read_text()
+        assert "class='contract'" in text, f"{page.name} reports no contract"
+        assert "assume implies" in text, f"{page.name} omits what a contract means"
+
+
+def test_cli_show_html_includes_the_contracts(tmp_path, examples):
+    target = tmp_path / "report.html"
+    assert main(["show", str(examples / "electrical.tiny"), "--html",
+                 str(target)]) == 0
+    text = target.read_text()
+    assert "ChargesInTime" in text
+    assert "r : WithinItsRating" in text          # the component contract too
 
 
 def test_cli_show_can_write_html(tmp_path, examples):

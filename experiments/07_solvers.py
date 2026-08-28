@@ -88,6 +88,35 @@ page.add_source(EXAMPLES / "electrical.tiny", title="The model - RCCircuit")
 page.add_figure(figure, "Error against step size, log-log. The grey lines are "
                         "slopes 1, 2 and 4 for comparison.")
 
+# The circuit carries a contract. Does it survive a coarse fixed step?
+print("\n\nThe circuit's contract, under each fixed-step method:\n")
+print(f"  {'method':8s}{'step':>8s}{'verdict':>12s}{'tightest margin':>18s}")
+contract_runs = []
+for method in ("euler", "heun", "rk4"):
+    for step in (0.02, 0.005):
+        run = tinysim.simulate(rc, stop=1.0, method=method, step=step)
+        report = tinysim.check_contracts(rc, run)
+        system = [item for item in report.results if not item.instance][0]
+        tightest = min(system.guarantees, key=lambda clause: clause.margin)
+        print(f"  {method:8s}{step:8.3f}{system.verdict.upper():>12s}"
+              f"{tightest.margin_text:>18s}")
+        contract_runs.append((method, step, report))
+
+page.add_text("""
+    The circuit carries a contract, and one of its clauses - that the capacitor
+    never overshoots the source - holds by less than a millivolt. A margin that
+    small is inside the error of a coarse fixed step: with a 20 ms Euler step
+    the margin comes out at 0.00014 V, and with RK4 at 0.00045 V. The verdict
+    happens to agree, but a requirement tightened by two tenths of a millivolt
+    would not: the coarse run would report it violated and the fine one
+    satisfied. A margin is only as trustworthy as the run it was measured on,
+    which is worth knowing before quoting one.
+    """)
+page.add_contracts(rc, contract_runs[0][2],
+                   title="Contracts - checked on a 20 ms Euler run")
+page.add_contracts(rc, contract_runs[-1][2],
+                   title="Contracts - checked on a 5 ms RK4 run")
+
 # ---------------------------------------------------------------------------
 # 2. A fixed step still has to cope with events -- summarised here, taken apart
 #    in experiment 8

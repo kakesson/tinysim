@@ -54,6 +54,9 @@ figure = tinysim.plot(bounces, ["h", "v"], separate=True,
                       title="Bouncing ball: dotted lines mark the events")
 figure.savefig(FIGURES / "bouncing_ball.png", dpi=150)
 page.add_result(bounces, ["h", "v"], title="The simulation - bouncing ball")
+ball_contracts = tinysim.check_contracts(ball, bounces)
+print(f"contracts: {ball_contracts.summary()}")
+page.add_contracts(ball, ball_contracts, title="Contracts - bouncing ball")
 page.add_figure(figure, "Height and velocity. Each dotted line is an event: "
                         "the integration stopped there, the velocity was "
                         "reversed, and a new segment began.")
@@ -90,6 +93,10 @@ figure.tight_layout()
 figure.savefig(FIGURES / "thermostat.png", dpi=150)
 print(f"wrote figures to {FIGURES}")
 page.add_result(control, ["T", "on"], title="The simulation - thermostat")
+thermostat_contracts = tinysim.check_contracts(thermostat, control)
+print(f"contracts: {thermostat_contracts.summary()}")
+page.add_contracts(thermostat, thermostat_contracts,
+                   title="Contracts - thermostat")
 page.add_figure(figure, "The temperature stays inside the hysteresis band "
                         "because the heater switches at its edges.")
 page.finish()

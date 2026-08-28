@@ -280,16 +280,49 @@ def test_the_names_in_a_component_contract_are_moved_into_the_instance():
 # The examples, and the link back to event detection
 # ---------------------------------------------------------------------------
 
-def test_the_shipped_examples_keep_their_contracts(examples):
-    for name, options in [("electrical.tiny", dict(stop=1.0)),
-                          ("thermostat.tiny", dict(stop=200.0, points=4001)),
-                          ("tank.tiny", dict(stop=20.0)),
-                          ("dcmotor.tiny", dict(stop=3.0, points=3001)),
-                          ("bouncing_ball.tiny", dict(stop=3.0))]:
-        model = tinysim.load(examples / name)
-        report = tinysim.check_contracts(model, tinysim.simulate(model, **options))
-        assert report.all_satisfied, f"{name}: {report.summary()}"
-        assert not report.not_tested, f"{name}: something went untested"
+#: Every example that can be simulated, and a run long enough to judge it by.
+SHIPPED_EXAMPLES = [
+    ("electrical.tiny", dict(stop=1.0)),
+    ("thermostat.tiny", dict(stop=200.0, points=4001)),
+    ("tank.tiny", dict(stop=20.0)),
+    ("dcmotor.tiny", dict(stop=3.0, points=3001)),
+    ("bouncing_ball.tiny", dict(stop=3.0)),
+    ("pendulum.tiny", dict(stop=10.0, points=2001)),
+    ("resistor_network.tiny", dict(stop=0.01, points=2001)),
+    ("diode_circuit.tiny", dict(stop=1.0, points=2001)),
+]
+
+
+@pytest.mark.parametrize("name, options", SHIPPED_EXAMPLES)
+def test_the_shipped_examples_keep_their_contracts(name, options, examples):
+    model = tinysim.load(examples / name)
+    assert model.contract_instances, f"{name} carries no contract"
+    report = tinysim.check_contracts(model, tinysim.simulate(model, **options))
+    assert report.all_satisfied, f"{name}: {report.summary()}"
+    assert not report.not_tested, f"{name}: something went untested"
+
+
+def test_every_simulatable_example_carries_a_contract(examples):
+    """A model without a contract says nothing about what it is for."""
+    without = []
+    for path in sorted(examples.glob("*.tiny")):
+        program = tinysim.parse_file(path)
+        models = [name for name, definition in program.classes.items()
+                  if definition.kind == "model" and not definition.partial]
+        promised = {contract.model_name for contract in program.contracts.values()}
+        if not promised & set(models):
+            without.append(path.name)
+    assert without == [], f"no contract in: {', '.join(without)}"
+
+
+def test_a_model_that_cannot_be_solved_still_reports_its_contract(examples):
+    """The Cartesian pendulum: the contract is the constraint, in words."""
+    with pytest.raises(tinysim.StructuralError) as error:
+        tinysim.load(examples / "pendulum_cartesian.tiny", "CartesianPendulum")
+    partial = error.value.partial_model
+    assert len(partial.contract_instances) == 1
+    contract, _ = partial.contract_instances[0]
+    assert contract.name == "StaysOnTheRod"
 
 
 def test_switching_event_detection_off_breaks_the_ball_contract(examples):

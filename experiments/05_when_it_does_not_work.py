@@ -82,6 +82,16 @@ except tinysim.StructuralError as error:
     print(error)
     page.add_error(error, getattr(error, "partial_model", None),
                    title="Why the Cartesian pendulum cannot be simulated")
+    partial = getattr(error, "partial_model", None)
+    if partial is not None:
+        page.add_text("""
+            The contract on that model is worth reading next to the error. It
+            says the mass stays at the end of the rod - which is exactly what
+            the constraint equation says, and exactly what makes the model
+            impossible to put into state-space form. The requirement is
+            perfectly reasonable; it is the coordinates that are the problem.
+            """)
+        page.add_contracts(partial, title="What it was supposed to promise")
 
 print("\nThe same pendulum in angular coordinates has no constraint at all,")
 print("and simulates without trouble:")
@@ -99,4 +109,9 @@ page.add_text("""
 page.add_source(EXAMPLES / "pendulum.tiny", title="The same pendulum, in an angle")
 page.add_model(angular, title="How the angular pendulum was compiled")
 page.add_result(result, ["phi", "w"])
+
+contracts = tinysim.check_contracts(angular, result)
+print(f"  contracts: {contracts.summary()}")
+page.add_contracts(angular, contracts,
+                   title="Contracts - the angular pendulum")
 page.finish()

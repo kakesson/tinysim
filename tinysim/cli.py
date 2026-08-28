@@ -140,7 +140,8 @@ def main(argv=None) -> int:
             if getattr(arguments, "html", None):
                 _write_html(partial, arguments, error=error)
             else:
-                explain(partial, stages="model,flat,connections,alias,variables")
+                explain(partial,
+                        stages="model,flat,connections,alias,variables,contracts")
                 print("\n" + "=" * 78)
                 print("THE PIPELINE STOPPED HERE")
                 print("=" * 78)
@@ -160,6 +161,8 @@ def _write_html(compiled, arguments, error=None):
         page.add_model(compiled)
     else:
         page.add_error(error, compiled)
+    # What the model promises belongs in the report whether or not it ran.
+    page.add_contracts(compiled)
     page.finish()
 
 

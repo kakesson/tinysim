@@ -70,6 +70,14 @@ end RCCircuit;
 // ---------------------------------------------------------------------------
 // What this circuit promises. `tinysim run electrical.tiny --contracts`
 // ---------------------------------------------------------------------------
+contract WithinItsRating for Resistor
+  "a resistor of this library is rated for two watts"
+assume
+  always abs(v) <= 25;                    // it is a low-voltage part
+guarantee
+  always abs(v * i) <= 2;
+end WithinItsRating;
+
 contract ChargesInTime for RCCircuit
   "the capacitor reaches 95 % of the source voltage within half a second"
 assume

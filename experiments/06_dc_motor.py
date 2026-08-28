@@ -70,6 +70,19 @@ figure.savefig(FIGURES / "dc_motor.png", dpi=150)
 print(f"wrote {FIGURES / 'dc_motor.png'}")
 page.add_result(result, ["load.w", "load.phi", "l.i", "emf.v"],
                 title="The simulation - starting up")
+
+contracts = tinysim.check_contracts(motor, result)
+print(f"\ncontracts: {contracts.summary()}")
+for item in contracts.results:
+    print(f"  {item.title:30s} {item.verdict.upper()}")
+page.add_text("""
+    Two of the components carry contracts of their own, and they are checked
+    once per instance against the environment the system actually gave them.
+    Reading the section below from the bottom up is the compositional argument
+    in miniature: the system kept the inductor inside its rated voltage, so the
+    inductor owed its current bound - and kept it.
+    """)
+page.add_contracts(motor, contracts)
 page.add_figure(figure, f"The shaft settles at the speed a hand calculation "
                         f"gives, {steady_state:.1f} rad/s.")
 page.finish()

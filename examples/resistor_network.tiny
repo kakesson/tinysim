@@ -63,3 +63,13 @@ equation
   connect(c.n, gnd.p);
   connect(src.n, gnd.p);
 end ResistorNetwork;
+
+contract ChargesToTheDividerVoltage for ResistorNetwork
+  "with no current left in r3, the capacitor sits at the divider voltage"
+assume
+  always src.V > 0;
+guarantee
+  always c.v <= src.V;                    // never above the supply
+  eventually within [0, 0.005] c.v >= 6.8;
+  always abs(r1.i) <= 0.05;               // and nothing draws more than 50 mA
+end ChargesToTheDividerVoltage;

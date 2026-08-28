@@ -11,3 +11,13 @@ equation
   m * L * L * der(w) = -m * g * L * sin(phi) - d * w;
 end Pendulum;
 
+
+contract SwingsAndSettles for Pendulum
+  "a damped pendulum never gains energy, and its swing dies away"
+assume
+  d > 0 and m > 0 and L > 0;              // there is damping, and a real pendulum
+guarantee
+  always abs(phi) <= 1.2;                 // it never swings higher than it started
+  always m * g * L * (1 - cos(phi)) + m * L ^ 2 * w ^ 2 / 2 <= 4.51;
+  after 8 always abs(phi) <= 0.7;         // and by then it is nearly at rest
+end SwingsAndSettles;

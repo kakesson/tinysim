@@ -149,7 +149,8 @@ exactly.
 | Initialization as a system of its own | `examples/tank.tiny` |
 | Events, state jumps, discrete variables | `examples/bouncing_ball.tiny`, `examples/thermostat.tiny` |
 | High index detected and explained, not solved | `examples/pendulum_cartesian.tiny` |
-| Assume-guarantee contracts over Signal Temporal Logic | `tinysim run ... --contracts`, [`docs/contracts.md`](docs/contracts.md) |
+| Assume-guarantee contracts over Signal Temporal Logic | every example, [`docs/contracts.md`](docs/contracts.md) |
+| A component contract checked once per instance | `examples/dcmotor.tiny`, `examples/electrical.tiny` |
 | Fixed step against variable step, and the order of a method | `experiments/07_solvers.py` |
 | With and without zero-crossing detection | `experiments/08_zero_crossing.py` |
 

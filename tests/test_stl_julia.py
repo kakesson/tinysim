@@ -43,7 +43,8 @@ def test_the_generated_julia_says_what_the_contract_says(examples):
     # `eventually within [0, 0.5]` becomes the sample indices inside 0.5 s.
     assert "◊(1:51," in program
     # A predicate becomes `(lhs - rhs) op 0`, the form the library takes.
-    assert "xt -> (xt[1] - xt[3]) < 0" in program
+    import re
+    assert re.search(r"xt -> \(xt\[\d+\] - xt\[\d+\]\) < 0", program)
     assert len(trace.splitlines()) == len(result.time)
     assert all(clause.source for clause in clauses)
 

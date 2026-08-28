@@ -293,6 +293,24 @@ page.add_figure(figure, "How far the ball sinks and how late it bounces, "
 for policy in ("locate", "step", "off"):
     page.add_result(runs[policy], ["h", "v"],
                     title=f'The simulation - events="{policy}"')
+
+# The model's contract says what all of this was for.
+print("\n\nThe ball's contract under each policy:\n")
+for policy in ("locate", "step", "off"):
+    report = tinysim.check_contracts(ball, runs[policy])
+    failing = report.results[0].failing
+    print(f"  events={policy:8s} {report.results[0].verdict.upper():10s} "
+          f"tightest guarantee {failing.margin_text:>12s} at t = {failing.at_time:.4g}")
+    if policy == "step":
+        page.add_text("""
+            The model carries a contract, and the middle policy breaks it: the
+            guarantee that the ball stays on top of the floor fails by about a
+            millimetre. Nothing about the model changed - only how carefully
+            the crossing was found. Experiment 9 takes contracts apart properly.
+            """)
+        page.add_contracts(ball, report,
+                           title='Contracts - the ball with events="step"')
+
 page.add_model(ball)
 
 page.finish()

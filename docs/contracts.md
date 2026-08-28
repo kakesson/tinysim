@@ -223,7 +223,24 @@ Which is the whole point: the system is at fault, not the component. That
 distinction is what contract theory is for, and here it costs one extra
 verdict.
 
-## 7. Using it
+## 7. Where to see one
+
+Every example that can be simulated carries a contract, and every generated
+report shows it:
+
+| example | what it promises |
+| --- | --- |
+| `electrical.tiny` | the capacitor charges in time and never overshoots -- plus a per-instance contract on the resistor class |
+| `thermostat.tiny` | the room reaches the band, stays in it, and the heater switches when it should |
+| `bouncing_ball.tiny` | the ball stays on top of the floor and never gains energy |
+| `tank.tiny` | started in steady state, the level does not drift |
+| `dcmotor.tiny` | the shaft reaches its rated speed -- and two component contracts underneath it |
+| `pendulum.tiny` | a damped pendulum never gains energy and its swing dies away |
+| `resistor_network.tiny` | the capacitor charges to the divider voltage, drawing at most 50 mA |
+| `diode_circuit.tiny` | the diode conducts one way only, and Kirchhoff holds around the branch |
+| `pendulum_cartesian.tiny` | the mass stays at the end of the rod -- the requirement is fine; it is the same fact that makes the model impossible to solve |
+
+## 8. Using it
 
 ```bash
 tinysim show FILE --stages contracts        # what the contracts say, and mean
@@ -248,7 +265,7 @@ requirement, translation, verdict, margin and instant.
 ball whose contract passes with event detection on, fails by a millimetre when
 events are noticed a step late, and fails by 43 metres when they are ignored.
 
-## 8. Checked by somebody else's implementation
+## 9. Checked by somebody else's implementation
 
 A monitor you wrote yourself is readable, which is not the same as right. The
 same clauses can be handed to
@@ -299,7 +316,7 @@ rising edge, and a temporal operator there applies to a sample rather than to a
 sub-signal, so `whenever ... then ... within ...` is out of its reach. Those
 clauses fall back to TinySim's own monitor and say so in the report.
 
-## 9. Where it lives
+## 10. Where it lives
 
 | | |
 | --- | --- |

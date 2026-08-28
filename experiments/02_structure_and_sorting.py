@@ -46,6 +46,13 @@ for filename, model_name in [("electrical.tiny", "RCCircuit"),
     page.add_source(EXAMPLES / filename, title=f"The model - {model_name}")
     page.add_model(model, title=f"How {model_name} was compiled")
 
+    # Both models carry contracts; a short run is enough to check them.
+    stop = 1.0 if model_name == "RCCircuit" else 0.01
+    contracts = tinysim.check_contracts(
+        model, tinysim.simulate(model, stop=stop, points=2001))
+    print(f"  contracts: {contracts.summary()}")
+    page.add_contracts(model, contracts, title=f"Contracts - {model_name}")
+
     figure, (left, right) = plt.subplots(1, 2, figsize=(13, 5))
     plot_incidence(model.analysis, sorted_form=False, ax=left)
     plot_incidence(model.analysis, sorted_form=True, ax=right)

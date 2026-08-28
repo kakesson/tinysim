@@ -24,3 +24,14 @@ equation
   m * der(vy) = -F * y / L - m * g;
   x ^ 2 + y ^ 2 = L ^ 2;      // the constraint that makes the index high
 end CartesianPendulum;
+
+// The contract says exactly what the constraint equation says -- which is the
+// point: the requirement is perfectly reasonable, and it is the same fact that
+// makes the model impossible to put into state-space form.
+contract StaysOnTheRod for CartesianPendulum
+  "the mass stays at the end of a rigid rod"
+assume
+  L > 0 and m > 0;
+guarantee
+  always abs(sqrt(x ^ 2 + y ^ 2) - L) <= 1e-6;
+end StaysOnTheRod;
