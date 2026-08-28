@@ -16,7 +16,8 @@ from .analysis import StructuralAnalysis, der_name, find_states
 from .ast_nodes import equation_to_string, to_string
 
 STAGES = ["model", "flat", "connections", "alias", "variables", "incidence",
-          "matching", "blt", "procedure", "code", "initialization", "events"]
+          "matching", "blt", "procedure", "code", "initialization", "events",
+          "contracts"]
 
 
 def _out(file):
@@ -339,6 +340,54 @@ def show_events(compiled, file=None):
         print("  end;", file=_out(file))
 
 
+def show_contracts(compiled, file=None, report=None):
+    """
+    The contracts attached to this model, and -- given a run -- their verdicts.
+
+    Without a run this is a static view: what each contract requires, and the
+    Signal Temporal Logic it means. With a run it is the check.
+    """
+    instances = compiled.contract_instances
+    _heading(f"14. CONTRACTS  --  {len(instances)}", file)
+    if not instances:
+        print("  (no contract is attached to this model or to its components)",
+              file=_out(file))
+        return
+
+    verdicts = ({result.title: result for result in report.results}
+                if report is not None else {})
+    for contract, instance in instances:
+        title = f"{instance} : {contract.name}" if instance else contract.name
+        result = verdicts.get(title)
+        mark = f"   [{result.verdict.upper()}]" if result else ""
+        print(f"\n  {title}{mark}", file=_out(file))
+        if contract.description:
+            print(f"    \"{contract.description}\"", file=_out(file))
+        outcomes = ({id(item.clause): item
+                     for item in result.assumptions + result.guarantees}
+                    if result else {})
+        for kind, clause in contract.clauses():
+            outcome = outcomes.get(id(clause))
+            margin = (f"  margin {outcome.margin_text:>10s} "
+                      f"at t = {outcome.at_time:.6g}" if outcome else "")
+            written = clause.written if not margin else f"{clause.written:<46}"
+            print(f"    {kind:9s} {written}{margin}", file=_out(file))
+            print(f"              = {clause.stl}", file=_out(file))
+        for note in (result.notes if result else []):
+            print(f"    note: {note}", file=_out(file))
+
+    backends = {item.backend for result in (report.results if report else [])
+                for item in result.assumptions + result.guarantees}
+    if report is not None:
+        if "julia" in backends:
+            print("\n  Margins marked below were computed by "
+                  "SignalTemporalLogic.jl, not by TinySim.", file=_out(file))
+        print(f"\n  {report.summary()}", file=_out(file))
+        print(f"  Checked on one run, at output points {report.output_interval:g} "
+              f"apart. A run can\n  falsify a contract; it cannot verify one.",
+              file=_out(file))
+
+
 # =============================================================================
 # Everything at once
 # =============================================================================
@@ -349,7 +398,7 @@ def explain(compiled, stages="all", file=None):
 
     `stages` is "all", or a comma-separated selection from:
     model, flat, connections, alias, variables, incidence, matching, blt,
-    procedure, code, initialization, events.
+    procedure, code, initialization, events, contracts.
     """
     wanted = STAGES if stages in ("all", None) else [
         stage.strip() for stage in stages.split(",")]
@@ -383,3 +432,5 @@ def explain(compiled, stages="all", file=None):
         show_initialization(compiled, file)
     if "events" in wanted:
         show_events(compiled, file)
+    if "contracts" in wanted:
+        show_contracts(compiled, file)

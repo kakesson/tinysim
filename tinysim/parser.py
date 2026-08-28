@@ -20,6 +20,11 @@ from .ast_nodes import (
     Assign, BinOp, Call, ClassDef, ConnectEquation, Decl, Equation, Expr,
     IfExpr, Num, Program, Ref, Reinit, UnOp, WhenEquation, to_string,
 )
+from .contracts import (
+    After, Always, And, AtEnd, AtStart, Clause, Contract as ContractDefinition,
+    During, Eventually, Implies, Never, Not, Or, Predicate, Rise, SettlesTo,
+    StaysWithin, Until, Whenever,
+)
 from .lexer import Token, TinySimSyntaxError, tokenize
 
 # Words that may not be used as identifiers, and prefixes on declarations.
@@ -41,7 +46,217 @@ BUILTIN_FUNCTIONS = {
 }
 
 
-class Parser:
+
+
+# =============================================================================
+# Contracts
+# =============================================================================
+#
+# A contract is parsed by the same recursive-descent machinery as everything
+# else, with one extra ladder of precedence for the temporal operators:
+#
+#     clause -> implies -> or -> and -> temporal -> until -> comparison
+#
+# The parser produces the *surface* tree -- `whenever`, `stays within`,
+# `never` and the rest -- and `contracts.desugar` turns that into plain Signal
+# Temporal Logic afterwards.  Keeping both is what lets the reports show a
+# requirement in the words it was written in and in the logic it means.
+
+CONTRACT_KEYWORDS = {
+    "contract", "for", "assume", "guarantee", "always", "eventually", "never",
+    "until", "within", "whenever", "then", "holds", "after", "during", "at",
+    "start", "stays", "settles", "implies", "rise", "fall", "end",
+}
+
+
+class ContractParserMixin:
+    """The contract half of the parser, kept separate so it can be read alone."""
+
+    # -- contract Name for Model ... end; ------------------------------------
+
+    def parse_contract(self) -> ContractDefinition:
+        line = self.current.line
+        self.expect("contract")
+        name = self.identifier()
+        self.expect("for")
+        model_name = self.identifier()
+        description = ""
+        if self.current.kind == "STRING":
+            description = self.current.text
+            self.pos += 1
+
+        contract = ContractDefinition(name=name, model_name=model_name,
+                                      description=description, line=line)
+        while not self.at("end"):
+            if self.current.kind == "EOF":
+                self.error(f"unterminated contract {name!r}: missing 'end'")
+            if self.accept("assume"):
+                contract.assumptions.extend(self.parse_clauses())
+            elif self.accept("guarantee"):
+                contract.guarantees.extend(self.parse_clauses())
+            else:
+                self.error(f"expected 'assume' or 'guarantee' in contract "
+                           f"{name!r}, found {self.current.text!r}")
+        self.expect("end")
+        if self.current.kind == "IDENT":
+            closing = self.identifier()
+            if closing != name:
+                self.error(f"'end {closing}' does not match 'contract {name}'")
+        self.expect(";")
+        if not contract.assumptions and not contract.guarantees:
+            self.error(f"contract {name!r} says nothing")
+        return contract
+
+    def parse_clauses(self) -> list:
+        clauses = []
+        while not (self.at("end") or self.at("assume") or self.at("guarantee")
+                   or self.current.kind == "EOF"):
+            line = self.current.line
+            formula = self.parse_formula()
+            self.expect(";")
+            clauses.append(Clause(formula=formula, line=line))
+        return clauses
+
+    # -- the formula ladder --------------------------------------------------
+
+    def parse_formula(self):
+        return self.parse_implies()
+
+    def parse_implies(self):
+        left = self.parse_formula_or()
+        if self.accept("implies"):
+            return Implies(left, self.parse_implies())
+        return left
+
+    def parse_formula_or(self):
+        parts = [self.parse_formula_and()]
+        while self.accept("or"):
+            parts.append(self.parse_formula_and())
+        return parts[0] if len(parts) == 1 else Or(parts)
+
+    def parse_formula_and(self):
+        parts = [self.parse_temporal()]
+        while self.accept("and"):
+            parts.append(self.parse_temporal())
+        return parts[0] if len(parts) == 1 else And(parts)
+
+    def parse_temporal(self):
+        """
+        The temporal operators, and the patterns built on them.
+
+        **Scope:** a temporal operator applies to everything that follows it,
+        `and` and `or` included, so `always a > 0 and b > 0` means
+        `always (a > 0 and b > 0)` -- the way it reads aloud.  Parentheses stop
+        it: `(always a > 0) and b > 0`.  `not` is the exception and binds
+        tightly, as everywhere else.
+        """
+        if self.accept("always"):
+            window = self.parse_window() if self.at("within") else (None, None)
+            return Always(self.parse_formula(), window)
+        if self.accept("eventually"):
+            window = self.parse_window() if self.at("within") else (None, None)
+            return Eventually(self.parse_formula(), window)
+        if self.accept("never"):
+            return Never(self.parse_formula())
+        if self.accept("after"):
+            moment = self.parse_sum()
+            self.accept("always")                 # `after 60 always ...` reads better
+            return After(moment, self.parse_formula())
+        if self.accept("during"):
+            return During(self.parse_bounds(), self.parse_formula())
+        if self.accept("whenever"):
+            return self.parse_whenever()
+        if self.accept("at"):
+            if self.accept("start"):
+                return AtStart(self.parse_formula())
+            self.expect("end")
+            return AtEnd(self.parse_formula())
+        if self.accept("not"):
+            return Not(self.parse_temporal())
+        return self.parse_until()
+
+    def parse_whenever(self):
+        trigger = self.parse_formula_or()
+        self.expect("then")
+        response = self.parse_formula_or()
+        if self.accept("holds"):
+            self.expect("for")
+            duration = self.parse_sum()
+            return Whenever(trigger, response, (Num(0.0), duration), holds=True)
+        window = self.parse_window()
+        return Whenever(trigger, response, window)
+
+    def parse_until(self):
+        left = self.parse_atom_formula()
+        if self.accept("until"):
+            window = self.parse_window() if self.at("within") else (None, None)
+            return Until(left, self.parse_temporal(), window)
+        return left
+
+    def parse_window(self):
+        """`within [a, b]`."""
+        self.expect("within")
+        return self.parse_bounds()
+
+    def parse_bounds(self):
+        self.expect("[")
+        low = self.parse_sum()
+        self.expect(",")
+        high = self.parse_sum()
+        self.expect("]")
+        return low, high
+
+    def parse_atom_formula(self):
+        if self.at("("):
+            # `(` starts either a grouped formula, `(a > 1 and b > 2)`, or a
+            # grouped arithmetic expression, `(a + b) > 2`.  Try the first and
+            # fall back to the second: one token of lookahead is not enough to
+            # tell them apart, and backtracking here is cheaper to read than a
+            # scan for the matching bracket.
+            checkpoint = self.pos
+            try:
+                self.expect("(")
+                formula = self.parse_formula()
+                self.expect(")")
+                if not (self.current.kind == "OP"
+                        and self.current.text in RELATIONAL_OPERATORS):
+                    return formula
+            except TinySimSyntaxError:
+                pass
+            self.pos = checkpoint
+        if self.at("rise") or self.at("fall"):
+            kind = self.current.text
+            self.pos += 1
+            self.expect("(")
+            inner = self.parse_formula()
+            self.expect(")")
+            return Rise(inner) if kind == "rise" else Rise(Not(inner))
+
+        left = self.parse_sum()
+
+        # `x stays within [lo, hi]` and `x settles to v within tol after t`
+        if self.accept("stays"):
+            self.expect("within")
+            low, high = self.parse_bounds()
+            return StaysWithin(left, low, high)
+        if self.accept("settles"):
+            self.expect("to")
+            value = self.parse_sum()
+            self.expect("within")
+            tolerance = self.parse_sum()
+            after = self.parse_sum() if self.accept("after") else None
+            return SettlesTo(left, value, tolerance, after)
+
+        if not (self.current.kind == "OP"
+                and self.current.text in RELATIONAL_OPERATORS):
+            self.error("a contract clause must compare something, for example "
+                       "'c.v >= 9.5'; write 'x == 1' rather than just 'x'")
+        operator = self.current.text
+        self.pos += 1
+        return Predicate(operator, left, self.parse_sum())
+
+
+class Parser(ContractParserMixin):
     """A recursive-descent parser for one TinySim source file."""
 
     def __init__(self, source: str, filename: str = "<string>"):
@@ -102,6 +317,12 @@ class Parser:
     def parse_program(self) -> Program:
         program = Program()
         while self.current.kind != "EOF":
+            if self.at("contract"):
+                contract = self.parse_contract()
+                if contract.name in program.contracts:
+                    self.error(f"contract {contract.name!r} is defined twice")
+                program.contracts[contract.name] = contract
+                continue
             definition = self.parse_class()
             if definition.name in program.classes:
                 self.error(f"class {definition.name!r} is defined twice")

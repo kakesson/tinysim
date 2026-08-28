@@ -101,7 +101,38 @@ tinysim check examples/pendulum_cartesian.tiny         # analyse only
 tinysim run   examples/bouncing_ball.tiny --stop 3 --plot h,v
 tinysim run   examples/bouncing_ball.tiny --stop 3 --method rk4 --step 1e-3
 tinysim run   examples/bouncing_ball.tiny --stop 3 --events off
+tinysim run   examples/dcmotor.tiny --stop 3 --contracts   # check the contracts
 ```
+
+## Contracts
+
+A model can say what it needs from its environment and what it promises in
+return, in a readable layer over Signal Temporal Logic:
+
+```modelica
+contract ChargesInTime for RCCircuit
+  "the capacitor reaches 95 % of the source voltage within half a second"
+assume
+  always src.V >= 5 and src.V <= 15;
+guarantee
+  eventually within [0, 0.5] c.v >= 0.95 * src.V;
+  always c.v <= src.V;
+end ChargesInTime;
+```
+
+Every clause is checked against a run and reported with a **margin** -- the
+robustness of the formula, in the units of the signal -- so "satisfied" comes
+with how much room there was, and "violated" with by how much. A run in which
+an assumption fails is reported as **not tested**, never as a pass: that is the
+assume-guarantee reading, and it is what separates *the system misused this
+component* from *this component broke its promise*. See
+[`docs/contracts.md`](docs/contracts.md).
+
+The clauses can also be handed to
+[SignalTemporalLogic.jl](https://github.com/sisl/SignalTemporalLogic.jl) instead
+of to TinySim's own monitor (`--stl-backend julia`), which is how the readable
+monitor is kept honest: on every example here the two implementations agree
+exactly.
 
 ![RC circuit simulation against the analytic solution](figures/rc_circuit.png)
 
@@ -118,6 +149,7 @@ tinysim run   examples/bouncing_ball.tiny --stop 3 --events off
 | Initialization as a system of its own | `examples/tank.tiny` |
 | Events, state jumps, discrete variables | `examples/bouncing_ball.tiny`, `examples/thermostat.tiny` |
 | High index detected and explained, not solved | `examples/pendulum_cartesian.tiny` |
+| Assume-guarantee contracts over Signal Temporal Logic | `tinysim run ... --contracts`, [`docs/contracts.md`](docs/contracts.md) |
 | Fixed step against variable step, and the order of a method | `experiments/07_solvers.py` |
 | With and without zero-crossing detection | `experiments/08_zero_crossing.py` |
 
@@ -126,6 +158,8 @@ tinysim run   examples/bouncing_ball.tiny --stop 3 --events off
 1. [`docs/language.md`](docs/language.md) -- the language, with a grammar.
 2. [`docs/pipeline.md`](docs/pipeline.md) -- one circuit followed through every
    stage, with the real output at each one. **Start here if you only read one.**
+   Then [`docs/contracts.md`](docs/contracts.md) for what a model can be asked
+   to promise.
 3. [`experiments/`](experiments) -- six runnable scripts, each teaching one
    idea and producing one figure:
 
@@ -138,6 +172,7 @@ tinysim run   examples/bouncing_ball.tiny --stop 3 --events off
    .venv/bin/python experiments/06_dc_motor.py              # two domains, one rule
    .venv/bin/python experiments/07_solvers.py               # fixed against variable step
    .venv/bin/python experiments/08_zero_crossing.py         # with and without event detection
+   .venv/bin/python experiments/09_contracts.py             # contracts, checked against runs
    ```
 
    Every experiment also takes `--html`, which writes a standalone page
@@ -152,7 +187,8 @@ tinysim run   examples/bouncing_ball.tiny --stop 3 --events off
    ```
 
 4. The source, in pipeline order: `lexer.py`, `parser.py`, `flatten.py`,
-   `alias.py`, `analysis.py`, `codegen.py`, `simulator.py`, `integrators.py`.
+   `alias.py`, `analysis.py`, `codegen.py`, `simulator.py`, `integrators.py`,
+   then `contracts.py` and `monitor.py`.
 
 ## What it deliberately does not do
 

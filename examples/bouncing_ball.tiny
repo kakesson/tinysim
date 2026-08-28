@@ -20,3 +20,13 @@ end BouncingBall;
 // floor.  Simulate to 3 s and it looks right; simulate to 20 s and it does
 // not.  The honest fix is to model the resting contact, not to tune the
 // tolerance -- see docs/pipeline.md.
+
+contract NeverSinksThroughTheFloor for BouncingBall
+  "the ball stays on top of the floor and never gains energy"
+assume
+  at start h > 0;
+  0 < e and e < 1;
+guarantee
+  always h >= -0.001;
+  always g * h + v ^ 2 / 2 <= g * 1.0 + 1e-9;
+end NeverSinksThroughTheFloor;

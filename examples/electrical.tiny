@@ -66,3 +66,16 @@ equation
   connect(src.n, gnd.p);
 end RCCircuit;
 
+
+// ---------------------------------------------------------------------------
+// What this circuit promises. `tinysim run electrical.tiny --contracts`
+// ---------------------------------------------------------------------------
+contract ChargesInTime for RCCircuit
+  "the capacitor reaches 95 % of the source voltage within half a second"
+assume
+  always src.V >= 5 and src.V <= 15;      // the source stays in its rated range
+guarantee
+  eventually within [0, 0.5] c.v >= 0.95 * src.V;
+  always c.v <= src.V;                    // and it never overshoots
+  never abs(r.i) > 0.2;                   // nor draws more than 200 mA
+end ChargesInTime;

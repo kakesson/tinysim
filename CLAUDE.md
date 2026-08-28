@@ -39,6 +39,11 @@ commit and say so.
 
 - Every pipeline stage stays inspectable: if you add a stage, add a section to
   `report.py`, to `htmlreport.py`, and to `docs/pipeline.md`.
+- Contracts are checked, never proved. Any wording that suggests a run verifies
+  a contract is a bug; "not tested" and "vacuous" are findings, not passes.
+- The contract monitor is cross-checked against SignalTemporalLogic.jl
+  (`tests/test_stl_julia.py`, skipped without Julia). If you change the
+  robustness semantics, that comparison must still come out at zero.
 - Generated HTML must stay self-contained: styles inline, images as data URIs,
   no scripts, no network.
 - Errors are teaching material. An error message names the offending equation

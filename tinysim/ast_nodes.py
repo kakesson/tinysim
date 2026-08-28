@@ -182,6 +182,9 @@ class ClassDef:
 class Program:
     """A parsed file: all the classes it defines, in declaration order."""
     classes: Dict[str, ClassDef] = field(default_factory=dict)
+    #: Assume-guarantee contracts, keyed by name.  Typed loosely to keep this
+    #: module free of imports; the values are `contracts.Contract`.
+    contracts: Dict[str, object] = field(default_factory=dict)
 
     def __getitem__(self, name: str) -> ClassDef:
         if name not in self.classes:

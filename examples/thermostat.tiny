@@ -17,3 +17,15 @@ equation
   end;
 end Thermostat;
 
+
+contract KeepsTheRoomComfortable for Thermostat
+  "the room reaches the band quickly, and the heater switches when it should"
+assume
+  always Tamb < Tset - band;              // the room can actually get cold
+  P > 0;                                  // and there is a heater
+guarantee
+  eventually within [0, 60] T >= Tset - band;
+  after 60 T stays within [Tset - band - 0.5, Tset + band + 0.5];
+  whenever T > Tset + band then on == 0 within [0, 0.1];
+  whenever T < Tset - band then on == 1 within [0, 0.1];
+end KeepsTheRoomComfortable;

@@ -86,3 +86,35 @@ equation
   connect(emf.flange, load.flange);
 end DCMotor;
 
+
+// ---------------------------------------------------------------------------
+// Contracts, at two levels. The component contracts are checked for each
+// instance, under the environment the system actually gave it, which is what
+// separates "the system misused the component" from "the component broke its
+// promise". Run `tinysim run dcmotor.tiny --stop 3 --contracts`.
+// ---------------------------------------------------------------------------
+contract WithinCurrentLimit for Inductor
+  "the winding tolerates this voltage, and keeps its current bounded"
+assume
+  always abs(v) <= 30;
+guarantee
+  always abs(i) <= 60;
+end WithinCurrentLimit;
+
+contract SpeedIsBounded for Inertia
+  "the load must not be driven past its mechanical limit"
+assume
+  always abs(flange.tau) <= 5;
+guarantee
+  always abs(w) <= 200;
+end SpeedIsBounded;
+
+contract ReachesSpeed for DCMotor
+  "the shaft reaches its rated speed quickly, and settles there"
+assume
+  always src.V >= 20 and src.V <= 28;
+guarantee
+  eventually within [0, 2] load.w >= 150;
+  after 2 load.w settles to 160 within 8;
+  always abs(l.i) <= 60;
+end ReachesSpeed;

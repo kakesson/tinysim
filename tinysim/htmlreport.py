@@ -111,6 +111,20 @@ ol.procedure code { font-size: .86rem; }
          padding: .9rem 1.1rem; margin: 1rem 0; }
 .phase > h4 { margin: 0 0 .5rem; font-size: .95rem; letter-spacing: .02em; }
 .phase p { margin: .4rem 0; }
+.contract { border: 1px solid var(--rule); border-radius: 6px; padding: .9rem 1.1rem;
+            margin: 1rem 0; }
+.contract > h4 { margin: 0 0 .2rem; font-size: 1rem; }
+.contract .desc { color: var(--muted); margin: 0 0 .6rem; }
+.verdict { float: right; font-size: .74rem; font-weight: 700; letter-spacing: .06em;
+           padding: .16rem .5rem; border-radius: 4px; }
+.verdict.satisfied { background: var(--good); color: #fff; }
+.verdict.violated { background: var(--loop); color: #fff; }
+.verdict.untested { background: var(--muted); color: var(--page); }
+.contract table { margin: .3rem 0; }
+.contract .stl { color: var(--muted); font-size: .78rem;
+                 font-family: ui-monospace, Menlo, Consolas, monospace; }
+.contract .note { color: var(--loop); font-size: .84rem; margin: .3rem 0 0; }
+.bad { color: var(--loop); font-weight: 600; }
 figure { margin: 1.5rem 0; }
 figure img { max-width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 6px;
              background: #fff; }
@@ -252,6 +266,40 @@ class Page:
             self._add(_variables(compiled))
 
     # -- results -------------------------------------------------------------
+
+    def add_contracts(self, compiled, report=None,
+                      title: str = "Contracts"):
+        """
+        What this model promises, and whether the run kept the promise.
+
+        Without a `report` this is the static view: the requirement as written
+        and the Signal Temporal Logic it means. With one it carries the
+        verdict, the margin, and the instant of the closest call.
+        """
+        if not self.enabled or not compiled.contract_instances:
+            return
+        self._add(self._open(title))
+        self._add(
+            "<p>A contract says what a model needs from its environment "
+            "(<b>assume</b>) and what it promises in return "
+            "(<b>guarantee</b>). It is read as <i>assume implies "
+            "guarantee</i>: on a run where an assumption fails, nothing was "
+            "promised, and the verdict is <b>not tested</b> rather than a "
+            "pass. The margin is the robustness of the formula: how much room "
+            "there was, in the units of the signal.</p>")
+
+        verdicts = ({result.title: result for result in report.results}
+                    if report is not None else {})
+        for contract, instance in compiled.contract_instances:
+            heading = f"{instance} : {contract.name}" if instance else contract.name
+            self._add(_contract_card(contract, heading, verdicts.get(heading)))
+
+        if report is not None:
+            self._add(f"<p><b>{escape(report.summary())}.</b> Checked on one "
+                      f"run, at output points {report.output_interval:g} apart. "
+                      f"A run can falsify a contract; it cannot verify one, and "
+                      f"a violation narrower than that interval can pass "
+                      f"unnoticed.</p>")
 
     def add_result(self, result, names=None, title: str = "The simulation"):
         if not self.enabled:
@@ -509,6 +557,41 @@ def _blocks(analysis: StructuralAnalysis) -> str:
     return ("<h3>Solution order</h3>"
             "<p>Tarjan's algorithm returns the blocks already in the order they "
             "can be solved.</p>" + "".join(parts))
+
+
+def _contract_card(contract, heading: str, result) -> str:
+    """One contract, with its clauses and -- if it was checked -- its verdict."""
+    badge = ""
+    if result is not None:
+        css = {"satisfied": "satisfied", "violated": "violated",
+               "not tested": "untested"}[result.verdict]
+        badge = (f"<span class='verdict {css}'>"
+                 f"{escape(result.verdict.upper())}</span>")
+    outcomes = ({id(item.clause): item
+                 for item in result.assumptions + result.guarantees}
+                if result is not None else {})
+
+    rows = []
+    for kind, clause in contract.clauses():
+        outcome = outcomes.get(id(clause))
+        if outcome is None:
+            margin = "<td></td><td></td>"
+        else:
+            css = "" if outcome.satisfied else " class='bad'"
+            margin = (f"<td{css}>{escape(outcome.margin_text)}</td>"
+                      f"<td class='mono'>{outcome.at_time:.6g}</td>")
+        rows.append(
+            f"<tr><td>{escape(kind)}</td>"
+            f"<td class='mono'>{escape(clause.written)}"
+            f"<div class='stl'>= {escape(clause.stl)}</div></td>{margin}</tr>")
+
+    notes = "".join(f"<p class='note'>{escape(note)}</p>"
+                    for note in (result.notes if result is not None else []))
+    description = (f"<p class='desc'>{escape(contract.description)}</p>"
+                   if contract.description else "")
+    return (f"<div class='contract'>{badge}<h4>{escape(heading)}</h4>{description}"
+            "<table><tr><th></th><th>clause</th><th>margin</th><th>at</th></tr>"
+            + "".join(rows) + "</table>" + notes + "</div>")
 
 
 def _solution_procedure(compiled) -> str:

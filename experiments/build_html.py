@@ -54,6 +54,10 @@ EXPERIMENTS = [
      "8. Zero-crossing detection",
      "The same bouncing ball with the event located, detected a step late, and "
      "ignored altogether."),
+    ("09_contracts",
+     "9. Assume-guarantee contracts",
+     "What a model promises, whether the run kept the promise, and by how "
+     "much - with the component contracts checked one instance at a time."),
 ]
 
 

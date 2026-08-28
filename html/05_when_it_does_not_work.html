@@ -81,6 +81,20 @@ ol.procedure code { font-size: .86rem; }
          padding: .9rem 1.1rem; margin: 1rem 0; }
 .phase > h4 { margin: 0 0 .5rem; font-size: .95rem; letter-spacing: .02em; }
 .phase p { margin: .4rem 0; }
+.contract { border: 1px solid var(--rule); border-radius: 6px; padding: .9rem 1.1rem;
+            margin: 1rem 0; }
+.contract > h4 { margin: 0 0 .2rem; font-size: 1rem; }
+.contract .desc { color: var(--muted); margin: 0 0 .6rem; }
+.verdict { float: right; font-size: .74rem; font-weight: 700; letter-spacing: .06em;
+           padding: .16rem .5rem; border-radius: 4px; }
+.verdict.satisfied { background: var(--good); color: #fff; }
+.verdict.violated { background: var(--loop); color: #fff; }
+.verdict.untested { background: var(--muted); color: var(--page); }
+.contract table { margin: .3rem 0; }
+.contract .stl { color: var(--muted); font-size: .78rem;
+                 font-family: ui-monospace, Menlo, Consolas, monospace; }
+.contract .note { color: var(--loop); font-size: .84rem; margin: .3rem 0 0; }
+.bad { color: var(--loop); font-weight: 600; }
 figure { margin: 1.5rem 0; }
 figure img { max-width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 6px;
              background: #fff; }

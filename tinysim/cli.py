@@ -72,6 +72,14 @@ def build_parser() -> argparse.ArgumentParser:
                      help="one subplot per plotted variable")
     run.add_argument("--save", default=None, help="write the plot to a file")
     run.add_argument("--csv", default=None, help="write the results to a CSV file")
+    run.add_argument("--contracts", action="store_true",
+                     help="check the contracts attached to the model and its "
+                          "components; a violation makes the command fail")
+    run.add_argument("--stl-backend", default="builtin",
+                     choices=["builtin", "julia"],
+                     help="which implementation evaluates the contracts: "
+                          "TinySim's own monitor, or SignalTemporalLogic.jl "
+                          "(needs Julia; see docs/contracts.md)")
     return parser
 
 
@@ -96,6 +104,9 @@ def main(argv=None) -> int:
 
         elif arguments.command == "check":
             loops = [b for b in compiled.analysis.blocks if len(b) > 1]
+            if compiled.contract_instances:
+                print(f"{len(compiled.contract_instances)} contract(s) resolved "
+                      f"against the model")
             print(f"{compiled.name}: ok -- "
                   f"{len(compiled.analysis.equations)} equations, "
                   f"{len(compiled.analysis.states)} states, "
@@ -108,6 +119,14 @@ def main(argv=None) -> int:
                               points=arguments.points, method=arguments.method,
                               step=arguments.step, events=arguments.events)
             _report_run(result, arguments)
+            if arguments.contracts:
+                from . import check_contracts
+                from .report import show_contracts
+                report = check_contracts(compiled, result,
+                                         backend=arguments.stl_backend)
+                show_contracts(compiled, report=report)
+                if report.violated:
+                    return 1
 
     except ValueError as error:
         # A bad combination of solver options, reported without a traceback.

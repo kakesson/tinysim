@@ -33,6 +33,7 @@ tinysim/                the implementation, one module per pipeline stage
 docs/language.md        the language specification -- the contract
 docs/pipeline.md        one circuit followed through every stage (start here)
 docs/building-with-claude.md   how this was built with an agent
+docs/contracts.md       assume-guarantee contracts over Signal Temporal Logic
 docs/handoff.md         this file
 prompts/                the master prompt and the phase prompts
 .claude/agents/         four review subagents
@@ -57,6 +58,8 @@ Reopening any of these means rewriting more than it looks like.
 | No tearing of algebraic loops | a loop is solved as it stands, which is slower and far easier to read | noted in `docs/pipeline.md` |
 | Generated code is a deliverable | it is printed for students, so it keeps comments and real names | `codegen.py` |
 | Errors are teaching material | every message names the equation or variable and says what to do | `analysis.py`, `flatten.py` |
+| Contracts are monitored, never proved | a run falsifies or builds confidence; "not tested" and "vacuous" are findings | `monitor.py`, `docs/contracts.md` |
+| The monitor is cross-checked | SignalTemporalLogic.jl evaluates the same clauses and must agree exactly | `stl_julia.py`, `tests/test_stl_julia.py` |
 
 ## 3. Things that will bite you
 

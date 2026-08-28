@@ -266,11 +266,38 @@ plot(res, ["c.v", "r.i"])
 This is a deliberate separation: the `.tiny` file says what is *true* about the
 system, the Python script says what you want to *do* with it.
 
-## 8. Grammar (EBNF)
+## 8. Contracts
+
+A model may be given an assume-guarantee contract: what it needs from its
+environment, and what it promises in return. Contracts are a separate top-level
+definition, so a model can have several and can be given one after the fact.
+
+```modelica
+contract ChargesInTime for RCCircuit
+  "the capacitor reaches 95 % of the source voltage within half a second"
+assume
+  always src.V >= 5 and src.V <= 15;
+guarantee
+  eventually within [0, 0.5] c.v >= 0.95 * src.V;
+  always c.v <= src.V;
+end ChargesInTime;
+```
+
+Clauses are written in a readable layer -- `always`, `never`, `eventually
+within`, `after`, `during`, `whenever ... then ... within`, `stays within`,
+`settles to`, `at start`, `at end` -- over Signal Temporal Logic, and the tool
+prints both forms. A temporal operator applies to everything after it, so
+`always a and b` means `always (a and b)`; parentheses stop it.
+
+A contract belongs to a *class*, so it is checked once for every instance of
+that class inside a simulated system. The full description, the robustness
+margin and the three verdicts are in [`contracts.md`](contracts.md).
+
+## 9. Grammar (EBNF)
 
 ```ebnf
 program        = { definition } ;
-definition     = connector_def | model_def ;
+definition     = connector_def | model_def | contract_def ;
 
 connector_def  = "connector" IDENT { var_decl } "end" [ IDENT ] ";" ;
 model_def      = [ "partial" ] "model" IDENT
@@ -303,9 +330,36 @@ factor         = primary [ "^" factor ] ;
 primary        = NUMBER | comp_ref | func_call | "(" expr ")" | "not" primary ;
 func_call      = IDENT "(" [ expr { "," expr } ] ")" ;
 comp_ref       = IDENT { "." IDENT } ;
+
+contract_def   = "contract" IDENT "for" IDENT [ STRING ]
+                 { "assume" { clause } | "guarantee" { clause } }
+                 "end" [ IDENT ] ";" ;
+clause         = formula ";" ;
+formula        = implication ;
+implication    = disjunction [ "implies" implication ] ;
+disjunction    = conjunction { "or" conjunction } ;
+conjunction    = temporal { "and" temporal } ;
+temporal       = "always" [ window ] formula
+               | "eventually" [ window ] formula
+               | "never" formula
+               | "after" expr [ "always" ] formula
+               | "during" bounds formula
+               | "whenever" formula "then" formula
+                 ( window | "holds" "for" expr )
+               | "at" ( "start" | "end" ) formula
+               | "not" temporal
+               | until_formula ;
+until_formula  = atom_formula [ "until" [ window ] formula ] ;
+atom_formula   = "(" formula ")"
+               | ( "rise" | "fall" ) "(" formula ")"
+               | expr "stays" "within" bounds
+               | expr "settles" "to" expr "within" expr [ "after" expr ]
+               | expr relop expr ;
+window         = "within" bounds ;
+bounds         = "[" expr "," expr "]" ;
 ```
 
-## 9. Deliberately *not* in the language
+## 10. Deliberately *not* in the language
 
 Left out to keep the implementation readable by students:
 arrays and matrices, records, Integer/Boolean/String types, `algorithm`

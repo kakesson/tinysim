@@ -72,6 +72,10 @@ class FlatModel:
     when_equations: List[WhenEquation] = field(default_factory=list)
     connection_sets: List[ConnectionSet] = field(default_factory=list)
     parameter_values: Dict[str, float] = field(default_factory=dict)
+    #: Every component instance and the class it came from, the root model
+    #: included under the empty name.  Contracts are attached to classes, so
+    #: this is what lets a component's contract be checked for each instance.
+    components: Dict[str, str] = field(default_factory=dict)
 
     # -- handy views used by the later stages --------------------------------
     def continuous_variables(self) -> List[str]:
@@ -160,6 +164,7 @@ class Flattener:
                 f"its own; it exists to be inherited from with `extends`")
 
         self.model = FlatModel(name=model_name)
+        self.model.components[""] = model_name
         self._instantiate(definition, prefix="", modifiers={})
         self._expand_connections()
         self._evaluate_parameters()
@@ -285,6 +290,8 @@ class Flattener:
         inner_prefix = f"{prefix}{decl.name}."
         if definition.kind == "connector":
             self.connector_instances[prefix + decl.name] = definition.name
+        else:
+            self.model.components[prefix + decl.name] = definition.name
         self._instantiate(definition, inner_prefix, merged)
 
     def _add_equation(self, equation, prefix: str, class_name: str):

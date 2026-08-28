@@ -26,14 +26,15 @@ Every intermediate object is kept on the returned `CompiledModel`, so anything
 the report prints can also be inspected directly from Python.
 """
 
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 from .alias import AliasResult, eliminate_aliases
 from .analysis import (StructuralAnalysis, StructuralError, analyze,
                        check_balance)
 from .ast_nodes import Program
 from .codegen import GeneratedCode, generate_code
+from .contracts import Contract, prefix_contract, references
 from .flatten import FlatModel, ModelError, flatten
 from .lexer import TinySimSyntaxError
 from .parser import parse, parse_file
@@ -43,7 +44,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "load", "load_source", "compile_model", "choose_model", "simulate", "plot",
-    "explain",
+    "explain", "check_contracts", "cross_check_contracts",
     "CompiledModel", "SimulationResult", "Event",
     "ModelError", "StructuralError", "TinySimSyntaxError",
 ]
@@ -69,6 +70,10 @@ class CompiledModel:
     code: Optional[GeneratedCode] = None
     initialization: Optional[GeneratedCode] = None
     initialization_analysis: Optional[StructuralAnalysis] = None
+    #: `(contract, instance name)` for the model itself and for every component
+    #: instance whose class carries a contract.  The contracts are already
+    #: written in each instance's namespace.
+    contract_instances: List[tuple] = field(default_factory=list)
 
     @property
     def source(self) -> str:
@@ -122,7 +127,50 @@ def compile_model(program: Program, model_name: str,
     return CompiledModel(name=model_name, program=program, flat=flat,
                          alias=alias_result, model=model, analysis=analysis,
                          code=code, initialization=initialization,
-                         initialization_analysis=initialization_analysis)
+                         initialization_analysis=initialization_analysis,
+                         contract_instances=attach_contracts(program, flat))
+
+
+def attach_contracts(program: Program, flat: FlatModel) -> List[tuple]:
+    """
+    Work out which contracts apply to a flattened model, and to what.
+
+    A contract belongs to a class, so it applies once to the model being
+    simulated and once to every component instance of that class inside it.
+    Each copy is rewritten into that instance's namespace, and every name it
+    mentions is checked to exist -- a typo in a contract should fail the way a
+    typo in an equation does, before anything runs.
+    """
+    known = set(flat.variables) | {"time"}
+    states = {name for name, variable in flat.variables.items()
+              if variable.kind == "continuous"}
+    instances: List[tuple] = []
+
+    for contract in program.contracts.values():
+        if contract.model_name not in program.classes:
+            raise ModelError(
+                f"contract {contract.name!r} is written for {contract.model_name!r}, "
+                f"which is not a class in this file")
+        matching = [instance for instance, class_name in flat.components.items()
+                    if class_name == contract.model_name]
+        for instance in matching:
+            prefix = f"{instance}." if instance else ""
+            moved = prefix_contract(contract, prefix)
+            for _, clause in moved.clauses():
+                _check_contract_names(contract, clause, known, states, instance)
+            instances.append((moved, instance))
+    return instances
+
+
+def _check_contract_names(contract, clause, known, states, instance):
+    from .contracts import references as clause_references
+    for name in clause_references(clause.formula):
+        if name in known:
+            continue
+        raise ModelError(
+            f"contract {contract.name!r}, line {clause.line}: {name!r} is not a "
+            f"variable or parameter of "
+            + (f"component {instance!r}" if instance else "this model"))
 
 
 def load(path, model_name: Optional[str] = None, **options) -> CompiledModel:
@@ -183,6 +231,49 @@ def choose_model(program: Program, model_name: Optional[str] = None,
 
 
 _choose_model = choose_model
+
+
+def check_contracts(model, result, backend: str = "builtin"):
+    """
+    Check every contract that applies to a run.
+
+    `backend="builtin"` uses TinySim's own monitor, written out in
+    `monitor.py`.  `backend="julia"` hands the same clauses to
+    SignalTemporalLogic.jl instead -- an independent implementation, useful
+    both as a cross-check and because trusting a monitor you wrote yourself is
+    not the same as trusting one you did not.  See `stl_julia.py`.
+    """
+    if backend == "builtin":
+        from .monitor import check_contracts as _check
+        return _check(model, result)
+    if backend == "julia":
+        from .stl_julia import check_contracts as _check
+        return _check(model, result)
+    raise ValueError(f"unknown contract backend {backend!r}; "
+                     f"choose 'builtin' or 'julia'")
+
+
+def cross_check_contracts(model, result):
+    """
+    Check the contracts with both implementations and compare them.
+
+    Returns `(builtin_report, julia_report, differences)`, where `differences`
+    maps each clause to the size of the disagreement.  On the examples that
+    ships with TinySim the disagreement is exactly zero, which is the point:
+    the readable monitor in `monitor.py` is not just readable but right.
+    """
+    from .stl_julia import robustness_from_julia
+
+    builtin = check_contracts(model, result)
+    margins = robustness_from_julia(model, result)
+    differences = {}
+    for item in builtin.results:
+        for clause in item.assumptions + item.guarantees:
+            label = (f"{item.instance}|{item.contract.name}|{clause.kind}|"
+                     f"{clause.clause.line}")
+            if label in margins:
+                differences[label] = abs(clause.margin - margins[label])
+    return builtin, check_contracts(model, result, backend="julia"), differences
 
 
 def simulate(model, stop: float = 1.0, **options) -> SimulationResult:
