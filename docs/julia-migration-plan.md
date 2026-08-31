@@ -1,8 +1,8 @@
 # Moving TinySim to Julia -- a migration plan
 
-> **Status: plan.** Nothing has been ported yet. Three decisions marked
+> **Status: plan.** Nothing has been ported yet. Two decisions marked
 > **[OPEN]** below change the shape of the work; everything else follows from
-> them.
+> them. Reports are settled: the HTML generator is ported (section 4).
 
 TinySim is about 7 000 lines of Python and 2 000 lines of tests, covering a
 pipeline from `.tiny` source to simulation results, contracts, and reports.
@@ -62,13 +62,13 @@ first; **C** is A plus one extra back end, so nothing is wasted.
 Keeping the text format also keeps the option of a second back end (MTK) honest:
 one source, two compilations.
 
-## 4. **[OPEN 3]** Reports
+## 4. Reports -- **decided: port the HTML generator**
 
-| | |
-| --- | --- |
-| **Port the HTML generator** (recommended) | ~700 lines of string building; the generated pages stay byte-comparable with today's, which makes the port verifiable |
-| **Pluto notebooks** | reactive: change a parameter, watch the BLT blocks and the plots update. Excellent in a lecture, and `PlutoStaticHTML` exports static pages. Worth adding *later* as a second surface, not as the only one |
-| **Documenter.jl** | right for the manual (`docs/`), wrong for per-experiment reports |
+The ~700 lines of string building are ported as they are, so the generated
+pages stay comparable with today's -- which is what makes this part of the port
+verifiable at all. `Documenter.jl` remains the right tool for the manual in
+`docs/`, and Pluto notebooks are worth adding *later* as a second, interactive
+surface for lectures, not as a replacement for reproducible pages.
 
 ## 5. How the mapping works out, stage by stage
 
