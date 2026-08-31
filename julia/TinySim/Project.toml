@@ -1,0 +1,31 @@
+name = "TinySim"
+uuid = "24a50d08-81f6-4694-a9ec-455958833e1f"
+version = "0.1.0"
+authors = ["Knut Åkesson <kakesson@gmail.com>"]
+
+[deps]
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
+OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
+
+# SignalTemporalLogic.jl is deliberately *not* a dependency: version 1.0 pins
+# Zygote 0.6, which cannot coexist with the SciML stack MTK 11.40 needs. It
+# stays available as an optional cross-check, run in its own environment the
+# way the Python implementation already runs it.
+#
+# ModelingToolkit is pinned deliberately. The migration was verified against
+# 11.40, and the parts TinySim leans on -- TearingState and the structure it
+# exposes -- are internal to MTK and do change between versions.
+[compat]
+JSON3 = "1"
+ModelingToolkit = "11.40"
+OrdinaryDiffEq = "7.8"
+Symbolics = "7.39"
+julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

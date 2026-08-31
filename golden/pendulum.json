@@ -1,0 +1,273 @@
+{
+  "file": "examples/pendulum.tiny",
+  "model": "Pendulum",
+  "tolerance": {
+    "relative": 1e-06,
+    "absolute": 1e-09,
+    "event_time": 1e-06
+  },
+  "compiles": true,
+  "flat": {
+    "equations": [
+      "der(phi) = w",
+      "m * L * L * der(w) = -(m * g * L * sin(phi)) - d * w"
+    ],
+    "initial_equations": [],
+    "origins": [
+      "Pendulum",
+      "Pendulum"
+    ],
+    "equation_count": 2,
+    "continuous_count": 2,
+    "connection_sets": [],
+    "components": {
+      "": "Pendulum"
+    }
+  },
+  "simplified": {
+    "eliminated": {},
+    "remaining": [
+      "der(phi) = w",
+      "m * L * L * der(w) = -(m * g * L * sin(phi)) - d * w"
+    ],
+    "states": [
+      "phi",
+      "w"
+    ],
+    "unknowns": [
+      "der(phi)",
+      "der(w)"
+    ],
+    "parameters": {
+      "m": 1.0,
+      "L": 1.0,
+      "g": 9.81,
+      "d": 0.1
+    }
+  },
+  "blocks": [
+    {
+      "index": 1,
+      "unknowns": [
+        "der(phi)"
+      ],
+      "method": "explicit",
+      "solution": "der(phi) := w",
+      "equations": [
+        "der(phi) = w"
+      ]
+    },
+    {
+      "index": 2,
+      "unknowns": [
+        "der(w)"
+      ],
+      "method": "explicit",
+      "solution": "der(w) := -g*sin(phi)/L - d*w/(L^2*m)",
+      "equations": [
+        "m * L * L * der(w) = -(m * g * L * sin(phi)) - d * w"
+      ]
+    }
+  ],
+  "simulation": {
+    "options": {
+      "stop": 10.0,
+      "points": 2001
+    },
+    "variables": [
+      "phi",
+      "w"
+    ],
+    "samples": [
+      {
+        "time": 0.0,
+        "values": {
+          "phi": 1.0,
+          "w": 0.0
+        }
+      },
+      {
+        "time": 0.5,
+        "values": {
+          "phi": 0.11834569725692687,
+          "w": -2.9140807876833787
+        }
+      },
+      {
+        "time": 1.0,
+        "values": {
+          "phi": -0.9280464876002883,
+          "w": -0.5247702568313389
+        }
+      },
+      {
+        "time": 1.5,
+        "values": {
+          "phi": -0.2820186161871431,
+          "w": 2.6647332508067727
+        }
+      },
+      {
+        "time": 2.0,
+        "values": {
+          "phi": 0.8347661395026985,
+          "w": 0.9472954170805653
+        }
+      },
+      {
+        "time": 2.5,
+        "values": {
+          "phi": 0.40465661475463466,
+          "w": -2.3640507508829356
+        }
+      },
+      {
+        "time": 3.0,
+        "values": {
+          "phi": -0.7315378933542805,
+          "w": -1.2733927066106479
+        }
+      },
+      {
+        "time": 3.5,
+        "values": {
+          "phi": -0.492037374956541,
+          "w": 2.0476275876085057
+        }
+      },
+      {
+        "time": 4.0,
+        "values": {
+          "phi": 0.6264388506945275,
+          "w": 1.5123830941184262
+        }
+      },
+      {
+        "time": 4.5,
+        "values": {
+          "phi": 0.550467271730349,
+          "w": -1.7373254060225054
+        }
+      },
+      {
+        "time": 5.0,
+        "values": {
+          "phi": -0.5248861077104119,
+          "w": -1.6758855592197903
+        }
+      },
+      {
+        "time": 5.5,
+        "values": {
+          "phi": -0.5858709074994887,
+          "w": 1.4455242550727045
+        }
+      },
+      {
+        "time": 6.0,
+        "values": {
+          "phi": 0.4302324210678903,
+          "w": 1.7764666826472642
+        }
+      },
+      {
+        "time": 6.5,
+        "values": {
+          "phi": 0.60341428326865,
+          "w": -1.178521795261944
+        }
+      },
+      {
+        "time": 7.0,
+        "values": {
+          "phi": -0.3442987060401487,
+          "w": -1.8264498794571673
+        }
+      },
+      {
+        "time": 7.5,
+        "values": {
+          "phi": -0.6074115740675913,
+          "w": 0.9388670726772127
+        }
+      },
+      {
+        "time": 8.0,
+        "values": {
+          "phi": 0.26782444559799773,
+          "w": 1.8370814743850108
+        }
+      },
+      {
+        "time": 8.5,
+        "values": {
+          "phi": 0.6013664952029077,
+          "w": -0.7268574444050764
+        }
+      },
+      {
+        "time": 9.0,
+        "values": {
+          "phi": -0.20082710995419242,
+          "w": -1.818083509575852
+        }
+      },
+      {
+        "time": 9.5,
+        "values": {
+          "phi": -0.5880683260970714,
+          "w": 0.5414738389845641
+        }
+      },
+      {
+        "time": 10.0,
+        "values": {
+          "phi": 0.14287375793257173,
+          "w": 1.7775186210343934
+        }
+      }
+    ],
+    "final": {
+      "phi": 0.14287375793257173,
+      "w": 1.7775186210343934
+    },
+    "events": []
+  },
+  "contracts": [
+    {
+      "instance": "",
+      "contract": "SwingsAndSettles",
+      "verdict": "satisfied",
+      "clauses": [
+        {
+          "kind": "assume",
+          "written": "d > 0 and m > 0 and L > 0",
+          "stl": "d > 0 & m > 0 & L > 0",
+          "margin": 0.1,
+          "at_time": 0.0
+        },
+        {
+          "kind": "guarantee",
+          "written": "always abs(phi) <= 1.2",
+          "stl": "G(abs(phi) <= 1.2)",
+          "margin": 0.19999999999999996,
+          "at_time": 0.0
+        },
+        {
+          "kind": "guarantee",
+          "written": "always m * g * L * (1 - cos(phi)) + m * L^2 * w^2 / 2 <= 4.51",
+          "stl": "G(m * g * L * (1 - cos(phi)) + m * L^2 * w^2 / 2 <= 4.51)",
+          "margin": 0.00036562056645106367,
+          "at_time": 0.0
+        },
+        {
+          "kind": "guarantee",
+          "written": "after 8 abs(phi) <= 0.7",
+          "stl": "G[8, end](abs(phi) <= 0.7)",
+          "margin": 0.05218946795730295,
+          "at_time": 8.375
+        }
+      ]
+    }
+  ]
+}

@@ -49,6 +49,24 @@ top down.
 
 ![Incidence matrix before and after sorting](figures/incidence_resistornetwork.png)
 
+## Moving to Julia
+
+TinySim is being rebuilt in Julia on
+[ModelingToolkit](https://github.com/SciML/ModelingToolkit.jl), so that the
+reports show what a production tool really does with a model rather than what a
+teaching reimplementation does. The plan, and what was verified before any of
+it was written, is in
+[`docs/julia-migration-plan.md`](docs/julia-migration-plan.md).
+
+The Python implementation described below is **frozen**: it is the oracle the
+port is checked against, and `golden/` holds its recorded answers for every
+example -- flat equations, solution order, sampled trajectories, events and
+contract margins.
+
+```bash
+julia --project=julia/TinySim -e 'using Pkg; Pkg.test()'
+```
+
 ## Install
 
 ```bash

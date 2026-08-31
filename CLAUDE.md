@@ -1,12 +1,20 @@
 # TinySim
 
-A teaching implementation of an equation-based, acausal modeling language
-(a small Modelica subset) in Python.  Readability of the *implementation* is
-the product: students read this code.
+A teaching implementation of an equation-based, acausal modeling language (a
+small Modelica subset).  Readability is the product: students read this.
+
+**The project is migrating to Julia on ModelingToolkit** -- see
+`docs/julia-migration-plan.md`.  The Python implementation is **frozen**: it is
+the oracle the port is checked against, and the golden files in `golden/` are
+its recorded answers.  Do not add features to it; CI fails if the golden files
+stop matching.  New work goes in `julia/TinySim`.
 
 ## Commands
 
 ```bash
+julia --project=julia/TinySim -e 'using Pkg; Pkg.test()'   # the Julia port
+python tools/export_golden.py                 # refresh the oracle (rarely)
+
 .venv/bin/python -m pytest tests/ -q          # the test suite (must stay green)
 .venv/bin/python -m tinysim show FILE.tiny    # print every pipeline stage
 .venv/bin/python -m tinysim check FILE.tiny   # parse + analyse only

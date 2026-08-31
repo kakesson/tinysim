@@ -1,0 +1,2363 @@
+{
+  "file": "examples/thermostat.tiny",
+  "model": "Thermostat",
+  "tolerance": {
+    "relative": 1e-06,
+    "absolute": 1e-09,
+    "event_time": 1e-06
+  },
+  "compiles": true,
+  "flat": {
+    "equations": [
+      "der(T) = -(k * (T - Tamb)) + P * on"
+    ],
+    "initial_equations": [],
+    "origins": [
+      "Thermostat"
+    ],
+    "equation_count": 1,
+    "continuous_count": 1,
+    "connection_sets": [],
+    "components": {
+      "": "Thermostat"
+    }
+  },
+  "simplified": {
+    "eliminated": {},
+    "remaining": [
+      "der(T) = -(k * (T - Tamb)) + P * on"
+    ],
+    "states": [
+      "T"
+    ],
+    "unknowns": [
+      "der(T)"
+    ],
+    "parameters": {
+      "Tset": 20.0,
+      "band": 1.0,
+      "k": 0.1,
+      "P": 5.0,
+      "Tamb": 5.0
+    }
+  },
+  "blocks": [
+    {
+      "index": 1,
+      "unknowns": [
+        "der(T)"
+      ],
+      "method": "explicit",
+      "solution": "der(T) := P*on - k*(T - Tamb)",
+      "equations": [
+        "der(T) = -(k * (T - Tamb)) + P * on"
+      ]
+    }
+  ],
+  "simulation": {
+    "options": {
+      "stop": 200.0,
+      "points": 4001
+    },
+    "variables": [
+      "T",
+      "on"
+    ],
+    "samples": [
+      {
+        "time": 0.0,
+        "values": {
+          "T": 15.0,
+          "on": 1.0
+        }
+      },
+      {
+        "time": 10.15,
+        "values": {
+          "T": 19.626967093960364,
+          "on": 0.0
+        }
+      },
+      {
+        "time": 20.122585992683202,
+        "values": {
+          "T": 18.999999989999996,
+          "on": 1.0
+        }
+      },
+      {
+        "time": 30.1,
+        "values": {
+          "T": 20.55972790970648,
+          "on": 1.0
+        }
+      },
+      {
+        "time": 40.0,
+        "values": {
+          "T": 20.625494145441397,
+          "on": 0.0
+        }
+      },
+      {
+        "time": 50.050000000000004,
+        "values": {
+          "T": 19.840395114729148,
+          "on": 0.0
+        }
+      },
+      {
+        "time": 60.1,
+        "values": {
+          "T": 19.094743187932693,
+          "on": 0.0
+        }
+      },
+      {
+        "time": 70.0,
+        "values": {
+          "T": 20.05719590312142,
+          "on": 1.0
+        }
+      },
+      {
+        "time": 79.9,
+        "values": {
+          "T": 20.853492080395647,
+          "on": 0.0
+        }
+      },
+      {
+        "time": 89.95,
+        "values": {
+          "T": 20.056937350948857,
+          "on": 0.0
+        }
+      },
+      {
+        "time": 100.0,
+        "values": {
+          "T": 19.30040531393899,
+          "on": 0.0
+        }
+      },
+      {
+        "time": 109.9,
+        "values": {
+          "T": 19.54733124887028,
+          "on": 1.0
+        }
+      },
+      {
+        "time": 119.85287049887235,
+        "values": {
+          "T": 21.00000001,
+          "on": 0.0
+        }
+      },
+      {
+        "time": 129.85,
+        "values": {
+          "T": 20.27663924280433,
+          "on": 0.0
+        }
+      },
+      {
+        "time": 139.9,
+        "values": {
+          "T": 19.50906833893442,
+          "on": 0.0
+        }
+      },
+      {
+        "time": 149.8,
+        "values": {
+          "T": 19.030026951689717,
+          "on": 1.0
+        }
+      },
+      {
+        "time": 159.85000000000002,
+        "values": {
+          "T": 20.837329217405436,
+          "on": 1.0
+        }
+      },
+      {
+        "time": 169.75,
+        "values": {
+          "T": 20.499546893853697,
+          "on": 0.0
+        }
+      },
+      {
+        "time": 179.8,
+        "values": {
+          "T": 19.72077605135403,
+          "on": 0.0
+        }
+      },
+      {
+        "time": 189.8365154585164,
+        "values": {
+          "T": 18.999999989999985,
+          "on": 1.0
+        }
+      },
+      {
+        "time": 199.75,
+        "values": {
+          "T": 20.338847804569316,
+          "on": 1.0
+        }
+      }
+    ],
+    "final": {
+      "T": 20.908407213827346,
+      "on": 0.0
+    },
+    "events": [
+      {
+        "time": 1.625189297939616,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 2.9605032377112823,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 3.5320873818292706,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 4.867401321600938,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 5.438985465718927,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 6.774299405490599,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 7.345883549608589,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 8.681197489380256,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 9.252781633498241,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 10.588095573264077,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 11.159679717382062,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 12.494993657147898,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 13.066577801265883,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 14.401891741031719,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 14.973475885149703,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 16.30878982491554,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 16.88037396903353,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 18.21568790879937,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 18.787272052917363,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 20.122585992683202,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 20.694170136801198,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 22.02948407656703,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 22.601068220685022,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 23.93638216045086,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 24.507966304568857,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 25.84328024433469,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 26.41486438845268,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 27.75017832821852,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 28.321762472336516,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 29.65707641210235,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 30.22866055622034,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 31.56397449598618,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 32.13555864010417,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 33.470872579873095,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 34.042456723991094,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 35.37777066375693,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 35.94935480787492,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 37.28466874764909,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 37.856252891767085,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 39.19156683154126,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 39.76315097565925,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 41.098464915433425,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 41.67004905955142,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 43.00536299932559,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 43.57694714344358,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 44.91226108321776,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 45.48384522733575,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 46.81915916710992,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 47.390743311227915,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 48.72605725100209,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 49.29764139512008,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 50.632955334894255,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 51.20453947901225,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 52.53985341878642,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 53.11143756290441,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 54.44675150267859,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 55.01833564679658,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 56.353649586570754,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 56.925233730688745,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 58.26054767046292,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 58.83213181458091,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 60.167445754355086,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 60.73902989847308,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 62.07434383824725,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 62.645927982365244,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 63.98124192213942,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 64.55282606625741,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 65.88814000603159,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 66.45972415014774,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 67.79503808991375,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 68.36662223402988,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 69.7019361737988,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 70.27352031791493,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 71.60883425768075,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 72.1804184017969,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 73.51573234156291,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 74.08731648567904,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 75.42263042544796,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 75.9942145695641,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 77.32952850932992,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 77.90111265344606,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 79.23642659321207,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 79.8080107373282,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 81.14332467709713,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 81.71490882121326,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 83.05022276097908,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 83.62180690509523,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 84.95712084486124,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 85.52870498897737,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 86.86401892874629,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 87.43560307286242,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 88.77091701262825,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 89.34250115674439,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 90.6778150965104,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 91.24939924062653,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 92.58471318039545,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 93.15629732451158,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 94.49161126427741,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 95.06319540839355,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 96.39850934815956,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 96.9700934922757,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 98.30540743204462,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 98.87699157616075,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 100.21230551592657,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 100.78388966004272,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 102.11920359980873,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 102.69078774392486,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 104.02610168369378,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 104.59768582780991,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 105.93299976757574,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 106.50458391169188,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 107.83989785145789,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 108.41148199557402,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 109.74679593534294,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 110.31838007945908,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 111.6536940192249,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 112.22527816334105,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 113.56059210310706,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 114.13217624722319,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 115.46749018699211,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 116.03907433110824,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 117.37438827087406,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 117.94597241499021,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 119.28128635475622,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 119.85287049887235,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 121.18818443864127,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 121.7597685827574,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 123.09508252252323,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 123.66666666663937,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 125.00198060640538,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 125.57356475052151,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 126.90887869029044,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 127.48046283440657,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 128.8157767741724,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 129.3873609182904,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 130.72267485805622,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 131.2942590021735,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 132.62957294193936,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 133.20115708605735,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 134.53647102582318,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 135.10805516994117,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 136.4433691097154,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 137.0149532538334,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 138.35026719359922,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 138.9218513377165,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 140.25716527748236,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 140.82874942160035,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 142.16406336136617,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 142.73564750548417,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 144.0709614452584,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 144.6425455893764,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 145.97785952914222,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 146.5494436732595,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 147.88475761302536,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 148.45634175714335,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 149.79165569690917,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 150.36323984102717,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 151.6985537808014,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 152.2701379249194,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 153.60545186468522,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 154.1770360088025,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 155.51234994856836,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 156.08393409268635,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 157.41924803245217,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 157.99083217657017,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 159.3261461163444,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 159.8977302604624,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 161.23304420022822,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 161.8046283443455,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 163.13994228411136,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 163.71152642822935,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 165.04684036799517,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 165.61842451211317,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 166.9537384518874,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 167.5253225960054,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 168.86063653577122,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 169.4322206798885,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 170.76753461965436,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 171.33911876377235,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 172.67443270353817,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 173.24601684765616,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 174.5813307874304,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 175.1529149315484,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 176.48822887131422,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 177.0598130154315,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 178.39512695519736,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 178.96671109931535,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 180.30202503908117,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 180.87360918319916,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 182.2089231229734,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 182.7805072670914,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 184.11582120685722,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 184.6874053509745,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 186.02271929074035,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 186.59430343485835,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 187.92961737462417,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 188.50120151874216,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 189.8365154585164,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 190.4080996026344,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 191.74341354240022,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 192.3149976865175,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 193.65031162628335,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 194.22189577040135,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 195.55720971016717,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 196.12879385428516,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 197.4641077940594,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 198.0356919381774,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "time": 199.37100587794322,
+        "condition": "T < Tset - band",
+        "changes": {
+          "on": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "time": 199.9425900220605,
+        "condition": "T > Tset + band",
+        "changes": {
+          "on": [
+            1.0,
+            0.0
+          ]
+        }
+      }
+    ]
+  },
+  "contracts": [
+    {
+      "instance": "",
+      "contract": "KeepsTheRoomComfortable",
+      "verdict": "satisfied",
+      "clauses": [
+        {
+          "kind": "assume",
+          "written": "always Tamb < Tset - band",
+          "stl": "G(Tamb < Tset - band)",
+          "margin": 14.0,
+          "at_time": 0.0
+        },
+        {
+          "kind": "assume",
+          "written": "P > 0",
+          "stl": "P > 0",
+          "margin": 5.0,
+          "at_time": 0.0
+        },
+        {
+          "kind": "guarantee",
+          "written": "eventually within [0, 60] T >= Tset - band",
+          "stl": "F[0, 60](T >= Tset - band)",
+          "margin": 2.0000000100000115,
+          "at_time": 16.88037396903353
+        },
+        {
+          "kind": "guarantee",
+          "written": "after 60 (T stays within [Tset - band - 0.5, Tset + band + 0.5])",
+          "stl": "G[60, end](T >= Tset - band - 0.5 & T <= Tset + band + 0.5)",
+          "margin": 0.49999998999996365,
+          "at_time": 131.2942590021735
+        },
+        {
+          "kind": "guarantee",
+          "written": "whenever T > Tset + band then on == 0 within [0, 0.1]",
+          "stl": "G(rise(T > Tset + band) -> (F[0, 0.1](on == 0)))",
+          "margin": -0.0,
+          "at_time": 1.625189297939616
+        },
+        {
+          "kind": "guarantee",
+          "written": "whenever T < Tset - band then on == 1 within [0, 0.1]",
+          "stl": "G(rise(T < Tset - band) -> (F[0, 0.1](on == 1)))",
+          "margin": -0.0,
+          "at_time": 2.9605032377112823
+        }
+      ]
+    }
+  ]
+}

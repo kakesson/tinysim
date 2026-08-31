@@ -1,0 +1,37 @@
+{
+  "file": "examples/pendulum_cartesian.tiny",
+  "model": "CartesianPendulum",
+  "tolerance": {
+    "relative": 1e-06,
+    "absolute": 1e-09,
+    "event_time": 1e-06
+  },
+  "compiles": false,
+  "error": "the model is structurally singular: there is no way to give every equation an unknown of its own.\n\nEquations left without an unknown to compute:\n    eq 5: x^2 + y^2 = L^2      [CartesianPendulum]\n\nThis usually means the differential index of the model is higher than 1: the\nstate variables are not independent, but tied together by a constraint. A model\nlike a pendulum in Cartesian coordinates is the standard example -- x and y are\nstates, yet x^2 + y^2 = L^2 must hold at all times.\n\nReal tools handle this by *index reduction*: Pantelides' algorithm finds the\nconstraints that must be differentiated, differentiates them, and dummy-derivative\nselection then picks which variables stay states. TinySim deliberately stops here\ninstead, so that the failure -- and the reason index reduction exists -- is visible.\n\nIf the model is not meant to be high index, look for a variable that two equations\nare both trying to compute, or one that no equation computes at all.",
+  "flat": {
+    "equations": [
+      "der(x) = vx",
+      "der(y) = vy",
+      "m * der(vx) = -(F * x / L)",
+      "m * der(vy) = -(F * y / L) - m * g",
+      "x^2 + y^2 = L^2"
+    ],
+    "initial_equations": [],
+    "origins": [
+      "CartesianPendulum",
+      "CartesianPendulum",
+      "CartesianPendulum",
+      "CartesianPendulum",
+      "CartesianPendulum"
+    ],
+    "equation_count": 5,
+    "continuous_count": 5,
+    "connection_sets": [],
+    "components": {
+      "": "CartesianPendulum"
+    }
+  },
+  "contracts_attached": [
+    "StaysOnTheRod"
+  ]
+}

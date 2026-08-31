@@ -1,0 +1,266 @@
+{
+  "file": "examples/tank.tiny",
+  "model": "Tank",
+  "tolerance": {
+    "relative": 1e-06,
+    "absolute": 1e-09,
+    "event_time": 1e-06
+  },
+  "compiles": true,
+  "flat": {
+    "equations": [
+      "A * der(h) = qin - q",
+      "q = k * sqrt(h)"
+    ],
+    "initial_equations": [
+      "der(h) = 0"
+    ],
+    "origins": [
+      "Tank",
+      "Tank"
+    ],
+    "equation_count": 2,
+    "continuous_count": 2,
+    "connection_sets": [],
+    "components": {
+      "": "Tank"
+    }
+  },
+  "simplified": {
+    "eliminated": {},
+    "remaining": [
+      "A * der(h) = qin - q",
+      "q = k * sqrt(h)"
+    ],
+    "states": [
+      "h"
+    ],
+    "unknowns": [
+      "der(h)",
+      "q"
+    ],
+    "parameters": {
+      "A": 1.0,
+      "k": 0.5,
+      "qin": 0.3
+    }
+  },
+  "blocks": [
+    {
+      "index": 1,
+      "unknowns": [
+        "q"
+      ],
+      "method": "explicit",
+      "solution": "q := k*sqrt(h)",
+      "equations": [
+        "q = k * sqrt(h)"
+      ]
+    },
+    {
+      "index": 2,
+      "unknowns": [
+        "der(h)"
+      ],
+      "method": "explicit",
+      "solution": "der(h) := (qin - q)/A",
+      "equations": [
+        "A * der(h) = qin - q"
+      ]
+    }
+  ],
+  "simulation": {
+    "options": {
+      "stop": 20.0,
+      "points": 2001
+    },
+    "variables": [
+      "h",
+      "q"
+    ],
+    "samples": [
+      {
+        "time": 0.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 1.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 2.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 3.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 4.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 5.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 6.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 7.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 8.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 9.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 10.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 11.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 12.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 13.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 14.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 15.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 16.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 17.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 18.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 19.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      },
+      {
+        "time": 20.0,
+        "values": {
+          "h": 0.36,
+          "q": 0.3
+        }
+      }
+    ],
+    "final": {
+      "h": 0.36,
+      "q": 0.3
+    },
+    "events": []
+  },
+  "contracts": [
+    {
+      "instance": "",
+      "contract": "StaysAtTheSteadyLevel",
+      "verdict": "satisfied",
+      "clauses": [
+        {
+          "kind": "assume",
+          "written": "qin > 0 and k > 0",
+          "stl": "qin > 0 & k > 0",
+          "margin": 0.3,
+          "at_time": 0.0
+        },
+        {
+          "kind": "guarantee",
+          "written": "always abs(q - qin) <= 1e-06",
+          "stl": "G(abs(q - qin) <= 1e-06)",
+          "margin": 1e-06,
+          "at_time": 0.0
+        },
+        {
+          "kind": "guarantee",
+          "written": "h stays within [0.35, 0.37]",
+          "stl": "G(h >= 0.35 & h <= 0.37)",
+          "margin": 0.010000000000000009,
+          "at_time": 0.0
+        }
+      ]
+    }
+  ]
+}

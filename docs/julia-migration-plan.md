@@ -72,6 +72,12 @@ version to every digit reported.
 **The thermostat matches too**: `T` in **[19.0000, 21.0000]** after 20 s, `on`
 taking exactly {0, 1}, and **209 switches** -- the same count as Python.
 
+**One library cannot come along.** `SignalTemporalLogic.jl` 1.0 pins Zygote
+0.6, which cannot coexist with the SciML stack MTK 11.40 needs. It is therefore
+*not* a dependency of `TinySim.jl`; it stays available as an optional
+cross-check run in its own environment, exactly as the Python implementation
+already runs it. The contract monitor itself is ours in both languages.
+
 ### Three traps, found by probing rather than by debugging later
 
 1. **Symbols that appear only in an affect must be declared on the `System`.**
@@ -117,21 +123,17 @@ That turns a rewrite into a differential test, the same technique already used
 against SignalTemporalLogic.jl and SciPy. It also gives "done" a definition.
 The six traps in `docs/handoff.md` §3 must each reappear as a Julia test.
 
-## 6. **[OPEN]** What happens to the high-index example
+## 6. The high-index example -- **decided: show the reduction**
 
-MTK performs index reduction. `examples/pendulum_cartesian.tiny` -- which today
-is *rejected* with an explanation of what Pantelides would do -- will simply
-**simulate**. Three ways to go:
+MTK performs index reduction, so `examples/pendulum_cartesian.tiny` -- today
+*rejected* with an explanation of what Pantelides would do -- will simply
+**simulate**. The example stays, and the report says what MTK's Pantelides and
+dummy-derivative selection did to it. The lesson improves: from *why it cannot
+be solved* to *here is the machinery that solves it*, with the refusal that
+the Python version produced kept in the golden file as the "before".
 
-| | |
-| --- | --- |
-| **Show the reduction** (recommended) | keep the example, and report what MTK's Pantelides and dummy-derivative selection did to it. The lesson improves: from *why it cannot be solved* to *here is the machinery that solves it* |
-| Keep the refusal | detect high index in the translator before handing the model to MTK, and refuse as today. Preserves the spec, throws away what MTK gives for free |
-| Drop the example | simplest, and loses a good lesson |
-
-Whichever is chosen, `docs/language.md` §10 ("deliberately not in the
-language") has to change: index reduction and tearing are no longer out of
-scope, they are inherited.
+`docs/language.md` §10 ("deliberately not in the language") changes with it:
+index reduction and tearing are no longer out of scope, they are inherited.
 
 A related question that the experiments force: with MTK constructing the
 callbacks, the `events = "locate" | "step" | "off"` comparison in experiments
@@ -143,7 +145,7 @@ three ways.
 
 | # | phase | contents |
 | --- | --- | --- |
-| 0 | scaffold | `TinySim.jl`, `Project.toml` pinning MTK 11.40, `test/runtests.jl`, CI, golden-file export from Python |
+| 0 | scaffold **(done)** | `julia/TinySim` pinning MTK 11.40, a test suite over the golden files, CI for both languages, `tools/export_golden.py` |
 | 1 | lexer, parser, AST | mechanical; the grammar does not change |
 | 2 | translator to MTK | connectors, components, `extends`, modifiers, equations, `start`, `when`/`reinit` with `Pre`, discrete variables as held states |
 | 3 | compile and inspect | `expand_connections`, `mtkcompile`, `observed`, `TearingState`; the data the reports need, extracted into our own structures |

@@ -8,6 +8,12 @@ Repository: <https://github.com/kakesson/tinysim> (public, `main`).
 
 ---
 
+> **Migrating to Julia.** Since this was written the project has decided to
+> move to Julia on ModelingToolkit; see `docs/julia-migration-plan.md`. The
+> Python implementation below is frozen and serves as the oracle, with its
+> answers recorded in `golden/`. Sections 2 and 3 still apply -- the decisions
+> and the traps are language-independent.
+
 ## 1. What exists
 
 Everything below is committed and pushed. `python -m pytest tests/ -q` passes
@@ -41,7 +47,11 @@ examples/*.tiny         nine models, one teaching point each, each with a contra
 experiments/0*.py       nine scripts, each with --html and each reporting contracts
 html/                   the generated reports, committed
 figures/                the generated figures, committed
-tests/                  112 tests, asserting against hand calculations
+tests/                  180 tests, asserting against hand calculations
+
+golden/                 what the Python implementation says, per example
+tools/export_golden.py  writes them
+julia/TinySim/          the port: package, tests over the golden files
 ```
 
 ## 2. The decisions that are settled, and why
