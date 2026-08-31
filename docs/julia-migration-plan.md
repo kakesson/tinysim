@@ -1,155 +1,175 @@
-# Moving TinySim to Julia -- a migration plan
+# Rebuilding TinySim on ModelingToolkit -- a migration plan
 
-> **Status: plan.** Nothing has been ported yet. Two decisions marked
-> **[OPEN]** below change the shape of the work; everything else follows from
-> them. Reports are settled: the HTML generator is ported (section 4).
+> **Status: plan.** Nothing has been ported yet. The strategic decisions are
+> settled (section 1); one consequence of them needs a decision of its own and
+> is marked **[OPEN]** in section 6.
 
-TinySim is about 7 000 lines of Python and 2 000 lines of tests, covering a
-pipeline from `.tiny` source to simulation results, contracts, and reports.
-This is a plan for rebuilding it in Julia while leaning on existing Julia
-libraries wherever that does not cost the thing the project exists for: that
-every stage is *readable*.
+TinySim is about 7 000 lines of Python and 2 000 lines of tests. This is a plan
+for rebuilding it in Julia on top of ModelingToolkit, and a record of what was
+verified on this machine before any of it was written.
 
 ---
 
-## 1. Why Julia is a good fit here, and where the danger is
+## 1. The decisions
 
-Julia's modeling ecosystem is not a set of loose libraries -- it is the same
-pipeline TinySim teaches, implemented for real and split into reusable pieces.
-The depot on this machine already contains all of it:
-
-| TinySim stage | Julia library that does the same job |
+| | decided |
 | --- | --- |
-| flattening, connect | `ModelingToolkit` (`@connector`, `@mtkmodel`, `connect`) |
-| alias elimination, matching, BLT | `BipartiteGraphs`, `ModelingToolkitTearing`, `StateSelection`, `Graphs` |
-| symbolic per-block solving, code generation | `Symbolics.build_function`, `SymbolicUtils` |
-| integration, events | `OrdinaryDiffEq`, `Sundials`, `DiffEqCallbacks` |
-| algebraic loops | `NonlinearSolve`, `SCCNonlinearSolve`, `LinearSolve` |
-| contract monitoring | `SignalTemporalLogic` |
-| plots, reports | `Plots`, `Latexify`, `PlutoUI` |
-| index reduction (out of scope today) | `StateSelection` (Pantelides, dummy derivatives) |
+| **Architecture** | build on **ModelingToolkit**: `.tiny` compiles to an MTK `System`, and MTK does connection expansion, alias elimination, matching, tearing and code generation |
+| **Model syntax** | keep `.tiny` as a text format, with its own lexer and parser |
+| **Reports** | port the HTML generator, so pages stay comparable with today's |
+| **Python** | frozen from phase 1 and used as the oracle; archived under a tag when Julia reproduces its numbers |
 
-**The danger is the same thing.** If the pipeline is delegated to
-ModelingToolkit, the readable implementation students are meant to study
-becomes MTK's -- a mature, heavily optimised, hard-to-read code base. The
-teaching artefact would be gone, and what remained would be a worse
-ModelingToolkit.
+The cost of the architecture decision, stated plainly: the pipeline stops being
+readable *as TinySim's own code*. What replaces it is better in one way and
+worse in another -- students see what a production tool really does, and they
+see it through MTK's internals rather than through 3 000 lines written to be
+read. The reports are what decide whether that trade pays off, which is why
+they are ported rather than dropped: TinySim's job becomes **an instrument that
+makes MTK's stages legible**.
 
-So the strategy question is not "which libraries" but **how much of the
-pipeline stays hand-written**.
-
-## 2. **[OPEN 1]** Three strategies
-
-| | what it is | keeps | costs |
-| --- | --- | --- | --- |
-| **A. Port** | the same hand-written pipeline, in Julia; libraries only for solving, symbolics, plotting, STL | everything the project is for | a full rewrite, and the libraries do less than they could |
-| **B. Build on MTK** | `.tiny` front end compiles to ModelingToolkit; MTK does flattening, tearing, code generation, and its results are displayed | far less code; index reduction and tearing for free; real-tool behaviour | the pipeline is no longer readable, which was the point |
-| **C. Both** (recommended) | A as the teaching path, plus an MTK back end used as a reference and cross-check | the teaching value *and* a comparison against a real tool | more surface than A alone |
-
-**C** is the same pattern this project already used twice: the hand-written
-monitor cross-checked against SignalTemporalLogic.jl, and the built-in
-integrators compared against SciPy's. A student sees the hand-written BLT
-sorting *and* what `ModelingToolkitTearing` makes of the same model. Do **A**
-first; **C** is A plus one extra back end, so nothing is wasted.
-
-## 3. **[OPEN 2]** The model syntax
+## 2. What is still ours to write
 
 | | |
 | --- | --- |
-| **Keep `.tiny` as text** (recommended) | the language is the agreed teaching artefact and is deliberately not tied to a host language. The lexer and parser are the smallest and most mechanical part of the port (~900 lines), and the specification, examples and documentation survive untouched. |
-| **Move to a Julia macro DSL** | `@model`/`@connector` like MTK and Modia. More idiomatic, free editor support, no parser to maintain -- but the language stops being a thing students *read a grammar for*, and every example, document and contract has to be rewritten. |
+| lexer, parser, AST | ~900 lines, mechanical translation of the Python |
+| `.tiny` → MTK translator | new, and the heart of the port: connectors, components, equations, `when`/`reinit`, `start`, contracts |
+| contracts and the monitor | ports directly; `SignalTemporalLogic.jl` becomes a normal dependency |
+| reports, terminal and HTML | port, driven by MTK's data instead of ours |
+| CLI, experiments, documentation | port |
 
-Keeping the text format also keeps the option of a second back end (MTK) honest:
-one source, two compilations.
+That is still a substantial and readable body of code -- roughly 2 500 lines --
+and it is where the teaching now lives: the translator shows what a `.tiny`
+construct *becomes*, and the reports show what MTK makes of it.
 
-## 4. Reports -- **decided: port the HTML generator**
+## 3. Verified on this machine, before writing anything
 
-The ~700 lines of string building are ported as they are, so the generated
-pages stay comparable with today's -- which is what makes this part of the port
-verifiable at all. `Documenter.jl` remains the right tool for the manual in
-`docs/`, and Pluto notebooks are worth adding *later* as a second, interactive
-surface for lectures, not as a replacement for reproducible pages.
+Julia 1.12.3, ModelingToolkit **11.40.0**, and the whole SciML stack already in
+the depot. Every claim below was run, not assumed.
 
-## 5. How the mapping works out, stage by stage
+**The pipeline.** For the RC circuit, built programmatically:
 
-Most of the port is translation, not design. Two stages get materially better,
-and one gets simpler.
+| stage | call | result |
+| --- | --- | --- |
+| as written | `equations(rc)` | the four `connect(...)` equations |
+| flat model | `expand_connections(rc)` | **20 equations, 20 unknowns** -- the same flat model the Python flattener produces |
+| simplified | `mtkcompile(rc)` | **1 equation**, `D(c₊v) ~ c₊i/c₊C` |
+| what was eliminated | `observed(simplified)` | **19 equations** -- our alias table *and* the solution order, in MTK's own output |
+| result | `solve(...; reltol=1e-9)` | `c.v(1) = 9.999550047` against the analytic `9.999546001` |
 
-**Code generation gets better.** `Symbolics.build_function(expr, args...;
-expression = Val{true})` returns the generated code *as an expression*, which
-is exactly what TinySim prints today -- but produced by a real symbolic
-library, and `Latexify` can render the same equations for slides.
+**The structural data the reports need is reachable.** `TearingState(sys)`
+gives `structure.graph` (a `BipartiteGraph` of equations against variables,
+with a print matrix), `var_to_diff`, `solvable_graph`, `var_types` and
+`fullvars`. `ModelingToolkitTearing`, `StateSelection` and `BipartiteGraphs`
+are separate packages in the depot, so the matching and BLT sections can be
+built from the real tool's structures.
 
-**Events get simpler, and more honest.** The three event policies map onto
-three standard SciML constructs, which is a strong sign the semantics were
-right:
+**Events work, and match our numbers.** `continuous_events = [[h ~ 0] =>
+[v ~ -e * Pre(v)]]`, where MTK's `Pre` is exactly our `pre()`. The bouncing
+ball: 6 bounces, the first at **0.451524** (analytic 0.451524), restitution
+0.8000, `min h = 5.3e-16`, `h(3) = +0.0687` -- the same answer as the Python
+version to every digit reported.
 
-| TinySim today | Julia |
+**The thermostat matches too**: `T` in **[19.0000, 21.0000]** after 20 s, `on`
+taking exactly {0, 1}, and **209 switches** -- the same count as Python.
+
+### Three traps, found by probing rather than by debugging later
+
+1. **Symbols that appear only in an affect must be declared on the `System`.**
+   MTK infers unknowns and parameters from the *equations*; a parameter used
+   only inside a `when` body is never registered, and the failure is a runtime
+   `UndefVarError` from generated code, thirty frames deep. The translator must
+   always pass the declared variables and parameters explicitly.
+2. **An affect written as an equation cannot assign a parameter**
+   (`check_no_parameter_equations`). So a `discrete Real` does *not* become an
+   MTK parameter. It becomes a **held state**: `D(on) ~ 0` plus events that
+   jump it. That keeps the system balanced and every affect symbolic, and it is
+   what produced the matching thermostat numbers above.
+3. **`start` must reach MTK as a default**, or `mtkcompile` warns that the
+   initialization system is underdetermined and quietly falls back to least
+   squares.
+
+A fourth, smaller one: `@connector` and `@mtkmodel` moved to `SciCompDSL.jl` in
+MTK 11, so systems must be built programmatically -- which is what a compiler
+does anyway.
+
+## 4. What each report section becomes
+
+| today | on MTK |
 | --- | --- |
-| `events="locate"` | `VectorContinuousCallback(..., rootfind = SciMLBase.LeftRootFind)` |
-| `events="step"` | `DiscreteCallback` -- the condition is checked only at the end of a step, by construction |
-| `events="off"` | no callback |
-| `reinit(v, ...)` | `integrator.u[i] = ...` inside `affect!` |
-| the hysteresis band | the callback's own `abstol` and `repeat_nudge` |
+| flat model | `equations(expand_connections(sys))` |
+| connection sets | the connect equations, tagged during translation |
+| alias elimination | `observed(mtkcompile(sys))` |
+| incidence matrix, matching | `TearingState(...).structure.graph` |
+| BLT blocks, solution order | MTK's torn blocks -- *including* the tearing our version does not do |
+| generated code | `Symbolics.build_function(...; expression = Val{true})`, printable, and `Latexify` for slides |
+| the solution procedure, in words | the same narration, over MTK's stages |
+| contracts | unchanged; the monitor runs over the `ODESolution` |
 
-Fixed and variable step likewise: `solve(prob, Euler(), dt = h, adaptive = false)`
-against `solve(prob, Rodas5P())`. The hand-written `integrators.py` stays as
-teaching code and is cross-checked against `Euler()`, `Heun()`, `RK4()`.
+## 5. Verification: Python is the oracle
 
-**Contracts.** The monitor ports directly; SignalTemporalLogic.jl becomes a
-native dependency rather than a subprocess, so the cross-check gets cheaper.
-The `whenever` fragment that library cannot express stays ours.
+Before any Julia is written, export golden files from the Python version for
+all nine examples: flat equations, the alias map, the blocks, simulation
+results at fixed time points, and every contract margin. The Julia test suite
+must reproduce them -- equations and structure exactly, numbers to a stated
+tolerance.
 
-## 6. Verification: the Python version is the oracle
+That turns a rewrite into a differential test, the same technique already used
+against SignalTemporalLogic.jl and SciPy. It also gives "done" a definition.
+The six traps in `docs/handoff.md` §3 must each reappear as a Julia test.
 
-The port must reproduce known-good numbers, and this repository already has
-them. Before writing any Julia:
+## 6. **[OPEN]** What happens to the high-index example
 
-1. Export golden files from Python for every example -- flat equations, the
-   alias map, the BLT blocks and their methods, the generated code's structure,
-   simulation results at fixed time points, and every contract margin.
-2. The Julia test suite reads those files and must reproduce them:
-   equations and blocks exactly, numbers to a stated tolerance.
+MTK performs index reduction. `examples/pendulum_cartesian.tiny` -- which today
+is *rejected* with an explanation of what Pantelides would do -- will simply
+**simulate**. Three ways to go:
 
-That turns a rewrite into a differential test, which is the same technique used
-for the STL monitor and for the solvers. It also gives an unambiguous
-definition of "done".
+| | |
+| --- | --- |
+| **Show the reduction** (recommended) | keep the example, and report what MTK's Pantelides and dummy-derivative selection did to it. The lesson improves: from *why it cannot be solved* to *here is the machinery that solves it* |
+| Keep the refusal | detect high index in the translator before handing the model to MTK, and refuse as today. Preserves the spec, throws away what MTK gives for free |
+| Drop the example | simplest, and loses a good lesson |
+
+Whichever is chosen, `docs/language.md` §10 ("deliberately not in the
+language") has to change: index reduction and tearing are no longer out of
+scope, they are inherited.
+
+A related question that the experiments force: with MTK constructing the
+callbacks, the `events = "locate" | "step" | "off"` comparison in experiments
+7-9 needs a different mechanism -- most likely building the `ODEProblem` and
+then replacing the callback set, so the same compiled system can be simulated
+three ways.
 
 ## 7. Phases
 
-Each phase ends with a green test suite and a commit; the golden files make
-every phase verifiable on its own.
-
-| # | phase | what it contains |
+| # | phase | contents |
 | --- | --- | --- |
-| 0 | scaffold | `TinySim.jl` package, `Project.toml`, `test/runtests.jl`, GitHub Actions, golden-file export from Python |
-| 1 | lexer, parser, AST | mechanical translation; the grammar does not change |
-| 2 | flattening, alias elimination | the pass structure carries over unchanged |
-| 3 | structural analysis | hand-written matching and Tarjan; cross-checked against `Graphs.strongly_connected_components` and `BipartiteGraphs` |
-| 4 | code generation | `Symbolics` for per-block solving and for printable generated code |
-| 5 | simulation | `OrdinaryDiffEq` + callbacks; the three event policies; the hand-written fixed-step methods kept and cross-checked |
-| 6 | contracts | monitor port, `SignalTemporalLogic` as a direct dependency |
-| 7 | reports and CLI | terminal report, HTML generator, `tinysim show/check/run` |
-| 8 | experiments | the nine scripts, the figures, the HTML pages regenerated and compared |
-| 9 | documentation | `docs/` ported, `CLAUDE.md` and the prompt kit rewritten for Julia |
-| 10 | retire Python | archived under a tag, or kept in `python/` as the reference implementation |
+| 0 | scaffold | `TinySim.jl`, `Project.toml` pinning MTK 11.40, `test/runtests.jl`, CI, golden-file export from Python |
+| 1 | lexer, parser, AST | mechanical; the grammar does not change |
+| 2 | translator to MTK | connectors, components, `extends`, modifiers, equations, `start`, `when`/`reinit` with `Pre`, discrete variables as held states |
+| 3 | compile and inspect | `expand_connections`, `mtkcompile`, `observed`, `TearingState`; the data the reports need, extracted into our own structures |
+| 4 | simulation | `ODEProblem`, solvers, the three event policies, fixed and variable step |
+| 5 | contracts | monitor port, `SignalTemporalLogic.jl` as a dependency |
+| 6 | reports and CLI | terminal report, HTML generator, `show`/`check`/`run` |
+| 7 | experiments | the nine scripts, figures, and HTML pages regenerated and compared against the Python ones |
+| 8 | documentation | `docs/` ported, `CLAUDE.md` and the prompt kit rewritten |
+| 9 | retire Python | tagged, then removed from the main tree |
 
-Phases 1-3 are pure translation and should go quickly. Phase 4 and 5 are where
-the libraries change the shape of the code and where the real work is.
+Phases 2 and 3 are the real work; the traps in section 3 are already paid for.
 
-## 8. Risks, and what to do about them
+## 8. Risks
 
 | risk | mitigation |
 | --- | --- |
-| **Start-up latency.** A Julia script that loads OrdinaryDiffEq and Plots can take 20-30 s before the first plot -- painful in a lecture and in a test loop | `PrecompileTools` in the package; a project-local system image for the course; keep the test suite free of plotting where possible |
-| **The libraries pull in a large dependency graph**, which is at odds with a teaching tool that should be easy to install | split: `TinySim.jl` core depends only on `Symbolics` and `OrdinaryDiffEq`; plotting, reports and the MTK back end go in package extensions |
-| **The rewrite loses a fix** that took a while to find the first time | the golden files, plus porting the tests first in each phase. The traps are listed in `docs/handoff.md` §3 and must all reappear as Julia tests |
-| **Two implementations drift** while both exist | keep Python frozen from phase 1: no new features there, only the oracle |
-| **Students must install Julia** | true, and it is a real cost; but this course's machine already carries the whole modeling stack, so it is likely the intended audience does too |
+| **MTK's structural internals are not public API.** `TearingState` and the structure fields can change between versions | pin the version in `Project.toml`; keep every MTK access inside one module, `MTKBridge.jl`; the golden files catch a behaviour change immediately |
+| **Two MTK versions in the depot** (10.31.2 and 11.6.1 resolved to 11.40.0) | pin, and state the version in the README |
+| **Start-up latency**: MTK plus OrdinaryDiffEq plus Plots is 20-30 s to the first plot | `PrecompileTools`; a course system image; keep plotting out of the test suite |
+| **MTK's answers differ from ours in a way that is not a bug but a better algorithm** (tearing, index reduction) | the golden files compare *results*, not intermediate block structure, wherever MTK legitimately does more |
+| **The teaching value erodes** because the pipeline is now someone else's code | this is the accepted cost of the architecture decision; the reports are the mitigation, and they are ported first-class rather than trimmed |
 
-## 9. What does *not* change
+## 9. What does not change
 
-The language specification, the examples, the contracts, the Lean plan, and the
-teaching sequence in `docs/pipeline.md` are all language-independent. So is the
-principle that every stage stays inspectable -- which is the one thing the port
-must not trade away for shorter code.
+The language specification (apart from §10), the nine examples, the contracts,
+the Lean plan, and the teaching sequence in `docs/pipeline.md`. So does the
+principle that every stage stays inspectable -- which after this change means
+*making MTK inspectable*, and is the reason the report layer is now the most
+important part of the project rather than a convenience.
