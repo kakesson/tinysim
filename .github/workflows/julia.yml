@@ -1,0 +1,23 @@
+# The Julia port. During the migration this runs the phase-0 test suite, which
+# checks the golden files; every later phase adds tests that compare the port
+# against them.
+name: julia
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@v2
+      - name: Instantiate
+        run: julia --project=julia/TinySim -e 'using Pkg; Pkg.instantiate()'
+      - name: Test
+        run: julia --project=julia/TinySim -e 'using Pkg; Pkg.test()'

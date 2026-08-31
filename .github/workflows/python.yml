@@ -1,0 +1,30 @@
+# The Python implementation is frozen: it is the oracle the Julia port is
+# checked against. This keeps it green, and -- more importantly -- fails if the
+# golden files no longer match what it produces, which is what makes "frozen"
+# mean something.
+name: python (the oracle)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . pytest
+      - name: Test
+        run: pytest tests/ -q
+      - name: The golden files still describe this implementation
+        run: |
+          python tools/export_golden.py
+          git diff --exit-code golden/ \
+            || (echo "::error::the golden files are out of date; the oracle changed" && exit 1)
