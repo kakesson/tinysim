@@ -30,11 +30,13 @@ include("lexer.jl")
 include("ast.jl")
 include("contracts.jl")
 include("parser.jl")
+include("translate.jl")
 
 export golden, golden_names, GOLDEN_DIRECTORY
 export parse, parse_file, tokenize, to_source
 export Program, ClassDefinition, Declaration, AutomatonDefinition, Contract
-export TinySimSyntaxError
+export TinySimSyntaxError, ModelError
+export build
 
 """
 The directory holding the golden files: what the Python implementation says
@@ -85,7 +87,7 @@ end
 # Still to come, in the order of `docs/julia-migration-plan.md`:
 #
 #   phase 1  lexer.jl, ast.jl, parser.jl        the .tiny front end   (done)
-#   phase 2  translate.jl                       AST -> ModelingToolkit
+#   phase 2  translate.jl                       AST -> ModelingToolkit  (done)
 #   phase 3  inspect.jl                         MTK's stages, as data
 #   phase 4  simulate.jl                        problems, solvers, events
 #   phase 5  contracts.jl, monitor.jl           assume-guarantee contracts
