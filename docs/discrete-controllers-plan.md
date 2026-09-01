@@ -44,6 +44,31 @@ I-term -- but it does not compute what its author wrote, and anyone
 transcribing embedded code would get a silently different controller. This is
 the investigation's §7 in the flesh.
 
+**Records already work, under another name.** A component that declares
+variables and no equations flattens into dotted fields, is assignable inside a
+`when` body, and simulates -- which is exactly what a record is:
+
+```modelica
+model ControllerState                    // a record in all but name
+  discrete Real integral(start = 0);
+  discrete Real previousError(start = 0);
+end ControllerState;
+```
+
+gave `s.integral`, `s.previousError`, 20 ticks and a settled loop. An earlier
+draft of this plan excluded records as expensive. That was wrong: instantiation
+already does the work, and the correction is recorded here rather than quietly
+fixed.
+
+**Guarded transitions cannot be written at all.** A state machine needs *in
+this state, and this guard*, and a `when` refuses it:
+
+```
+ModelError: line 8: a 'when' condition must be a simple comparison
+```
+
+That single restriction is what shapes the design in section 2F.
+
 **The target technology already has what is needed.** In ModelingToolkit,
 `discrete_events = [0.05 => [...]]` is a *periodic* event: the tick is
 scheduled, never hunted for by a root finder. The same PI controller in MTK
@@ -123,6 +148,92 @@ results, so the integrator state and the unsaturated control signal can be
 plotted and put under contract. A `local` or `protected` scope would be more
 Modelica-like and buys nothing here.
 
+### E. Records -- **nearly free**
+
+```modelica
+record ControllerState "what a PI controller carries between ticks"
+  discrete Real integral(start = 0);
+  discrete Real previousError(start = 0);
+end ControllerState;
+
+record Gains
+  parameter Real Kp = 2, Ki = 5, Kd = 0;
+end Gains;
+```
+
+A `record` is a class that declares variables and has no equations -- which is
+what the measurement above shows already flattens correctly. So the additions
+are small and mostly about intent:
+
+* the keyword, and an error if a record contains equations;
+* a record-typed declaration instantiates its fields, `s.integral` and so on --
+  the existing machinery, unchanged, including modifiers such as
+  `ControllerState s(integral(start = 2))`;
+* two pieces of sugar: whole-record assignment in a `when` body, `s := t;`,
+  and whole-record equality in an equation, `s = t;`, both expanding field by
+  field in declaration order.
+
+Records nest, because instantiation already recurses. Fields may be
+`parameter`, which makes a record a parameter set. Records are gone before any
+code is generated, so they cost the simulator nothing at all.
+
+Left out: arrays of records, records inside connectors -- a connector is
+already a record with flow semantics -- and record-valued expressions beyond a
+plain reference.
+
+### F. State machines -- **an `automaton`, desugared**
+
+```modelica
+automaton Supervisor sampled at 0.01
+  state Off, Starting, Running, Fault;
+  initial Off;
+transition
+  Off      -> Starting  when startCommand > 0.5  then u := uStart;
+  Starting -> Running   when w > wTarget;
+  Starting -> Fault     when timeInState > startTimeout;
+  Running  -> Fault     when abs(i) > iMax;
+  Fault    -> Off       when resetCommand > 0.5  then u := 0;
+end Supervisor;
+```
+
+**Semantics, spelled out**, because this is where state machines go wrong:
+
+* the automaton owns one discrete variable, the active state;
+  `Supervisor.state == Supervisor.Running` may be used in any expression, and
+  the state names are constants;
+* it is **level-triggered, on a clock**. At each tick the transitions *leaving
+  the active state* are tested in the order written, and the first whose guard
+  holds is taken. At most one transition per tick;
+* taking a transition records the entry time and runs the `then` actions --
+  assignments to discrete variables, sequential, exactly the rules of a `when`
+  body;
+* `timeInState` is the time since the last transition, usable in guards and in
+  equations, which is what makes timeouts and debouncing writable;
+* per-mode dynamics are written with the `if`-expressions the language already
+  has: `der(x) = if Supervisor.state == Supervisor.Running then -x + u else 0`.
+
+**Why the clock is required.** With edge-triggered `when`s, a guard that became
+true while the machine was in some *other* state would never fire when the
+machine arrives -- the edge has already passed. Level-triggering at ticks
+removes that entire class of bug, needs no conjunction of crossing functions
+(the gap measured in section 0), and matches how supervisory logic actually
+runs: in software, on a period. Modelica's state machines are clocked for the
+same reason.
+
+**What it costs the compiler:** a desugaring, and nothing else. An automaton
+becomes one discrete variable for the state, one for the entry time, and a
+single `when sample(t0, Ts)` whose body is a chain of `if`s -- so it needs
+exactly constructs A, B and C above and no new simulation machinery.
+
+Left out, deliberately: hierarchy and composite states, `synchronize`, reset
+semantics, the immediate/delayed distinction, and history. Each is a section of
+the Modelica specification and a week of work; a flat clocked machine is what a
+course needs, and what fits in a language with one scalar type.
+
+Optional later sugar, which changes no semantics: `in Running then der(x) = ...;`
+blocks that expand into the `if`-expressions above, with a check that every
+`in` block defines equations for the same unknowns.
+
 ## 3. What is deliberately left out, and what replaces it
 
 The investigation recommends clocked/synchronous Modelica. TinySim takes its
@@ -142,15 +253,12 @@ machinery costs more than it returns.
 
 Also left out, each with its reason:
 
-* **Functions and records.** The investigation puts the algorithm in a
-  `controllerStep` function with a state record, for reuse and isolated
-  testing. In TinySim the *component* is the unit of reuse -- instantiate the
+* **Functions.** The investigation puts the algorithm in a `controllerStep`
+  function taking a state record. TinySim takes the record (section 2E) and
+  leaves the function: the *component* is the unit of reuse -- instantiate the
   controller twice -- and the *contract* is the unit of test. Functions would
   bring parameter modes, multiple returns and a call stack into a language that
-  has none of those.
-* **State machines.** Supervisory logic is expressible with discrete variables
-  and `when`, at the cost of some verbosity, and a state-machine construct is a
-  second language inside the first.
+  has none of those. Records and automata are in; see 2E and 2F.
 * **Clocked continuous partitions** (`der(x)` discretised automatically). The
   point of this exercise is to model the algorithm that runs, not to have the
   tool invent one.
@@ -180,19 +288,32 @@ events.
 ## 5. Grammar
 
 ```ebnf
+definition = connector_def | model_def | record_def | automaton_def | contract_def ;
+
 when_eq    = "when" ( expr | sample_call ) "then" { when_stmt } "end" ";" ;
 sample_call= "sample" "(" expr "," expr ")" ;
 
 when_stmt  = comp_ref ":=" expr ";"
+           | comp_ref ":=" comp_ref ";"                  (* whole record *)
            | "reinit" "(" comp_ref "," expr ")" ";"
            | if_stmt ;
 if_stmt    = "if" expr "then" { when_stmt }
              { "elseif" expr "then" { when_stmt } }
              [ "else" { when_stmt } ] "end" "if" ";" ;
+
+record_def = "record" IDENT [ STRING ] { var_decl } "end" [ IDENT ] ";" ;
+
+automaton_def = "automaton" IDENT "sampled" "at" expr [ STRING ]
+                "state" IDENT { "," IDENT } ";"
+                "initial" IDENT ";"
+                "transition" { transition }
+                "end" [ IDENT ] ";" ;
+transition = IDENT "->" IDENT "when" expr [ "then" { when_stmt } ] ";" ;
 ```
 
 `sample(t0, Ts)` is allowed only as the condition of a `when`, which keeps it
-out of expressions where it would have no meaning.
+out of expressions where it would have no meaning. Inside an automaton,
+`timeInState` refers to that automaton.
 
 ## 6. What it buys the course
 
@@ -220,6 +341,24 @@ which is satisfied at 5 ms and violated at 100 ms, with a margin that says by
 how much. The anti-windup branch gives a second contract worth writing: the
 integrator never grows while the output is saturated.
 
+The automaton pays off twice. As an example, a supervisor over the same motor
+-- off, starting, running, fault -- shows mode logic separated from the
+numerical algorithm, which is the investigation's §16. And as a *subject* for
+contracts, because modes are exactly what temporal logic is good at:
+
+```modelica
+guarantee
+  never Supervisor.state == Supervisor.Fault;
+  whenever Supervisor.state == Supervisor.Starting
+    then Supervisor.state == Supervisor.Running within [0, 5];
+  always Supervisor.timeInState <= 60;
+```
+
+The record pays off in the reports rather than in the simulation: a controller
+whose state is a record produces `s.integral` and `s.previousError` as
+plottable, contractible variables, so the internal state of the software is as
+visible as the physics.
+
 ## 7. Where this fits in the migration
 
 The language change belongs in the specification now; the implementation
@@ -246,6 +385,10 @@ close that door.
 
 ## 8. **[OPEN]** Decisions
 
+0. **Records and automata are in**, on the strength of the measurements in
+   section 0: records cost a keyword and two sugars, automata cost a
+   desugaring. An earlier draft excluded both; only the exclusion of functions
+   survives.
 1. **`:=` and sequential bodies.** Recommended: yes -- it is what makes a
    controller mean what it says, and the measurement in section 0 shows the
    alternative is a silent trap. Cost: `on = 0` becomes `on := 0` in two
@@ -257,3 +400,10 @@ close that door.
 3. **`if` statements now, or after the port?** Recommended: now, in the
    specification, and implemented in Julia phase 1 with the rest -- saturation
    is not an advanced feature, it is the first thing anyone writes.
+4. **Must an automaton always carry a rate?** Recommended: yes. A
+   continuous-time automaton would need edge semantics, and the missed
+   transition described in 2F is a bug that is very hard to see in a plot. If a
+   supervisor really must react instantly, the rate can be made small.
+5. **`in <State> then <equations>` blocks?** Recommended: later. The
+   `if`-expression form works today and needs no balance analysis; the sugar
+   can be added without changing any semantics once the rest is in use.
