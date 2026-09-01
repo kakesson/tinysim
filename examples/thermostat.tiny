@@ -10,10 +10,10 @@ model Thermostat
 equation
   der(T) = -k * (T - Tamb) + P * on;
   when T > Tset + band then
-    on = 0;
+    on := 0;
   end;
   when T < Tset - band then
-    on = 1;
+    on := 1;
   end;
 end Thermostat;
 

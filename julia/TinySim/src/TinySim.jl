@@ -26,7 +26,15 @@ module TinySim
 
 using JSON3
 
+include("lexer.jl")
+include("ast.jl")
+include("contracts.jl")
+include("parser.jl")
+
 export golden, golden_names, GOLDEN_DIRECTORY
+export parse, parse_file, tokenize, to_source
+export Program, ClassDefinition, Declaration, AutomatonDefinition, Contract
+export TinySimSyntaxError
 
 """
 The directory holding the golden files: what the Python implementation says
@@ -76,7 +84,7 @@ end
 # ---------------------------------------------------------------------------
 # Still to come, in the order of `docs/julia-migration-plan.md`:
 #
-#   phase 1  lexer.jl, parser.jl, ast.jl        the .tiny front end
+#   phase 1  lexer.jl, ast.jl, parser.jl        the .tiny front end   (done)
 #   phase 2  translate.jl                       AST -> ModelingToolkit
 #   phase 3  inspect.jl                         MTK's stages, as data
 #   phase 4  simulate.jl                        problems, solvers, events

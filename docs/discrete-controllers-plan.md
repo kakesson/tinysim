@@ -188,11 +188,11 @@ automaton Supervisor sampled at 0.01
   state Off, Starting, Running, Fault;
   initial Off;
 transition
-  Off      -> Starting  when startCommand > 0.5  then u := uStart;
+  Off      -> Starting  when startCommand > 0.5  then u := uStart; end;
   Starting -> Running   when w > wTarget;
   Starting -> Fault     when timeInState > startTimeout;
   Running  -> Fault     when abs(i) > iMax;
-  Fault    -> Off       when resetCommand > 0.5  then u := 0;
+  Fault    -> Off       when resetCommand > 0.5  then u := 0; end;
 end Supervisor;
 ```
 
@@ -308,7 +308,7 @@ automaton_def = "automaton" IDENT "sampled" "at" expr [ STRING ]
                 "initial" IDENT ";"
                 "transition" { transition }
                 "end" [ IDENT ] ";" ;
-transition = IDENT "->" IDENT "when" expr [ "then" { when_stmt } ] ";" ;
+transition = IDENT "->" IDENT "when" expr [ "then" { when_stmt } "end" ] ";" ;
 ```
 
 `sample(t0, Ts)` is allowed only as the condition of a `when`, which keeps it

@@ -512,7 +512,16 @@ class Parser(ContractParserMixin):
         return WhenEquation(condition=condition, body=body, line=line)
 
     def parse_when_statement(self):
-        """Inside a `when`: either `reinit(x, expr);` or `x = expr;`."""
+        """
+        Inside a `when`: either `reinit(x, expr);` or `x := expr;`.
+
+        `:=` is what the specification says; `=` is still accepted because this
+        implementation is frozen and older files use it.  Note the divergence
+        it papers over: this implementation evaluates a `when` body
+        *simultaneously*, while the specification now says the statements run
+        in order.  The Julia port is what makes them sequential; no example
+        here depends on the difference.
+        """
         line = self.current.line
         if self.at("reinit"):
             self.expect("reinit")
@@ -524,7 +533,8 @@ class Parser(ContractParserMixin):
             self.expect(";")
             return Reinit(name=name, value=value, line=line)
         name = self.parse_component_reference()
-        self.expect("=")
+        if not self.accept(":="):
+            self.expect("=")
         value = self.parse_expression()
         self.expect(";")
         return Assign(name=name, value=value, line=line)

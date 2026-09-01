@@ -205,7 +205,37 @@ The initialization problem is solved as its own nonlinear system, and TinySim
 prints it separately so students see that initialization *is* a second,
 different equation system.
 
-## 6. Hybrid models
+## 6. Records
+
+A `record` groups variables that belong together -- the state a controller
+carries between ticks, or a set of gains:
+
+```modelica
+record ControllerState "what a PI controller carries between ticks"
+  discrete Real integral(start = 0);
+  discrete Real previousError(start = 0);
+end ControllerState;
+
+record Gains
+  parameter Real Kp = 2, Ki = 5, Kd = 0;
+end Gains;
+```
+
+A record declares variables and has no equations. Declaring one instantiates
+its fields under a dotted name, exactly as a component does:
+
+```modelica
+  ControllerState s;                    // gives s.integral, s.previousError
+  Gains fast(Kp = 8, Ki = 20);          // modifiers work as everywhere else
+```
+
+Whole records may be assigned in a `when` body, `s := t;`, or equated,
+`s = t;`; both mean field by field, in declaration order. Records may contain
+records. There are no arrays of records, no records inside connectors -- a
+connector is already a record with flow semantics -- and no record-valued
+expressions beyond a plain reference.
+
+## 7. Hybrid models
 
 A `when` clause fires at the instant its condition becomes true
 (a *rising edge*, false -> true). Its body may only
@@ -240,6 +270,34 @@ equation
 end Thermostat;
 ```
 
+**A `when` body is a piece of software, not a set of equations.** Its
+statements run in order, and each sees the values assigned by the ones before
+it; `pre(x)` is the value `x` had before the event began. That is why
+assignment is written `:=`:
+
+```modelica
+  when sample(0, Ts) then
+    e := reference - y;                        // reads the plant, sampled here
+    integral := pre(integral) + Ki * Ts * e;
+    u := Kp * e + integral;                    // the *new* integral
+  end;
+```
+
+`if` is available as a statement, for the saturation and mode logic that make a
+controller a program rather than a formula:
+
+```modelica
+    if u > uMax then
+      u := uMax;
+      integral := integral - Kaw * (uUnsat - uMax);
+    elseif u < uMin then
+      u := uMin;
+    end if;
+```
+
+A statement inside a `when` runs at an instant that has already been located,
+so it creates no events of its own.
+
 Semantics: between events the model is a continuous ODE with all discrete
 variables held constant. Conditions of all `when` clauses are handed to the
 integrator as *zero-crossing functions*; at a crossing the integrator stops,
@@ -249,7 +307,68 @@ integration restarts from the updated state.
 `when time > 2.0 then ...` is recognized as a *time event* and scheduled
 exactly instead of being searched for.
 
-## 7. Running an experiment
+### Sampling: `when sample(t0, Ts)`
+
+A digital controller runs on a period, and `sample` says so:
+
+```modelica
+  when sample(0, Ts) then
+    ...
+  end;
+```
+
+The instants `t0, t0 + Ts, t0 + 2Ts, ...` are *known in advance*, so they are
+scheduled rather than located: no crossing function, no root finding, and no
+drift in the tick times. Several rates simply mean several `when`s, which is
+all multirate needs.
+
+Zero-order hold needs no operator. A `discrete Real` keeps its value between
+events, so a control signal assigned at a tick is held until the next one -- if
+the plant reads it, it reads a staircase.
+
+## 8. State machines
+
+Supervisory logic -- off, starting, running, fault -- is written as an
+`automaton`:
+
+```modelica
+automaton Supervisor sampled at 0.01
+  state Off, Starting, Running, Fault;
+  initial Off;
+transition
+  Off      -> Starting  when startCommand > 0.5  then u := uStart; end;
+  Starting -> Running   when w > wTarget;
+  Starting -> Fault     when timeInState > startTimeout;
+  Running  -> Fault     when abs(i) > iMax;
+  Fault    -> Off       when resetCommand > 0.5  then u := 0; end;
+end Supervisor;
+```
+
+* An automaton always carries a **rate**. At each tick the transitions leaving
+  the active state are tested **in the order written**, and the first whose
+  guard holds is taken; at most one transition per tick.
+* Taking a transition records the entry time and runs the `then` statements,
+  under the rules of a `when` body.
+* `timeInState` is the time since the last transition, and may be used in a
+  guard or in an equation.
+* The active state is readable anywhere as `Supervisor.state ==
+  Supervisor.Running`; state names are constants.
+
+The rate is required rather than optional. Testing guards *while in the state*
+is what makes a transition fire when the machine arrives at a state whose guard
+is already true -- an edge-triggered machine would miss it, and the resulting
+bug is invisible in a plot.
+
+Behaviour that differs between modes is written with an `if`-expression:
+
+```modelica
+  der(x) = if Supervisor.state == Supervisor.Running then -x + u else 0;
+```
+
+Hierarchy, composite states, synchronisation, reset semantics and history are
+deliberately absent.
+
+## 9. Running an experiment
 
 The language describes *models only*. It has no construct for stop time, step
 size, solver settings or plotting: an experiment is ordinary Python code, where
@@ -266,7 +385,7 @@ plot(res, ["c.v", "r.i"])
 This is a deliberate separation: the `.tiny` file says what is *true* about the
 system, the Python script says what you want to *do* with it.
 
-## 8. Contracts
+## 10. Contracts
 
 A model may be given an assume-guarantee contract: what it needs from its
 environment, and what it promises in return. Contracts are a separate top-level
@@ -293,11 +412,12 @@ A contract belongs to a *class*, so it is checked once for every instance of
 that class inside a simulated system. The full description, the robustness
 margin and the three verdicts are in [`contracts.md`](contracts.md).
 
-## 9. Grammar (EBNF)
+## 11. Grammar (EBNF)
 
 ```ebnf
 program        = { definition } ;
-definition     = connector_def | model_def | contract_def ;
+definition     = connector_def | model_def | record_def | automaton_def
+               | contract_def ;
 
 connector_def  = "connector" IDENT { var_decl } "end" [ IDENT ] ";" ;
 model_def      = [ "partial" ] "model" IDENT
@@ -317,8 +437,14 @@ mod_item       = IDENT ( "=" expr | modification ) ;
 equation       = connect_eq | when_eq | simple_eq ;
 simple_eq      = expr "=" expr ";" ;
 connect_eq     = "connect" "(" comp_ref "," comp_ref ")" ";" ;
-when_eq        = "when" expr "then" { when_stmt } "end" ";" ;
-when_stmt      = comp_ref "=" expr ";" | "reinit" "(" comp_ref "," expr ")" ";" ;
+when_eq        = "when" ( expr | sample_call ) "then" { when_stmt } "end" ";" ;
+sample_call    = "sample" "(" expr "," expr ")" ;
+when_stmt      = comp_ref ":=" expr ";"
+               | "reinit" "(" comp_ref "," expr ")" ";"
+               | if_stmt ;
+if_stmt        = "if" expr "then" { when_stmt }
+                 { "elseif" expr "then" { when_stmt } }
+                 [ "else" { when_stmt } ] "end" "if" ";" ;
 
 expr           = if_expr | logic_expr ;
 if_expr        = "if" expr "then" expr "else" expr ;
@@ -330,6 +456,16 @@ factor         = primary [ "^" factor ] ;
 primary        = NUMBER | comp_ref | func_call | "(" expr ")" | "not" primary ;
 func_call      = IDENT "(" [ expr { "," expr } ] ")" ;
 comp_ref       = IDENT { "." IDENT } ;
+
+record_def     = "record" IDENT [ STRING ] { var_decl } "end" [ IDENT ] ";" ;
+
+automaton_def  = "automaton" IDENT "sampled" "at" expr [ STRING ]
+                 "state" IDENT { "," IDENT } ";"
+                 "initial" IDENT ";"
+                 "transition" { transition }
+                 "end" [ IDENT ] ";" ;
+transition     = IDENT "->" IDENT "when" expr
+                 [ "then" { when_stmt } "end" ] ";" ;
 
 contract_def   = "contract" IDENT "for" IDENT [ STRING ]
                  { "assume" { clause } | "guarantee" { clause } }
@@ -359,13 +495,18 @@ window         = "within" bounds ;
 bounds         = "[" expr "," expr "]" ;
 ```
 
-## 10. Deliberately *not* in the language
+## 12. Deliberately *not* in the language
 
-Left out to keep the implementation readable by students:
-arrays and matrices, records, Integer/Boolean/String types, `algorithm`
-sections, user-defined functions, packages and imports, replaceable
-components, `if`-equations (use `if`-expressions), stream connectors,
-`inner`/`outer`, higher-order `der(der(x))`, and units checking.
+Left out to keep the implementation readable by students: arrays and matrices,
+Integer/Boolean/String types, `algorithm` sections outside a `when` body,
+user-defined functions, packages and imports, replaceable components,
+`if`-equations (use `if`-expressions), stream connectors, `inner`/`outer`,
+higher-order `der(der(x))`, and units checking.
+
+Of Modelica's synchronous language elements, only the part a sampled controller
+needs is taken: `sample(t0, Ts)` on a `when`. `Clock`, `previous`, `hold`,
+`subSample` and clock inference are absent -- `pre` is `previous`, a discrete
+variable is already held, and a second rate is a second `when`.
 
 TinySim also refuses (with an explanation) models of differential index > 1,
 such as a pendulum written in Cartesian coordinates: it detects the structural
