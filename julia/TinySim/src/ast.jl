@@ -207,6 +207,7 @@ is taken.
 struct AutomatonDefinition
     name::String
     rate::Expression
+    declarations::Vector{Declaration}
     states::Vector{String}
     initial::String
     transitions::Vector{Transition}

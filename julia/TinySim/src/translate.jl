@@ -227,9 +227,19 @@ function start_value(declaration::Declaration, modifier)
     return constant_value(attributes["start"])
 end
 
-"""A component or record: build it, with the modifiers handed down."""
+"""A component, record or automaton: build it, with the modifiers handed down."""
 function add_subsystem!(program::Program, instance::Instance,
                         declaration::Declaration, modifier)
+    automaton = find_automaton(program, declaration.type_name)
+    if automaton !== nothing
+        merged = copy(declaration.modifiers)
+        modifier isa Dict && (merged = merge(merged, modifier))
+        subsystem = build_automaton(program, automaton, Symbol(declaration.name), merged)
+        push!(instance.subsystems, subsystem)
+        instance.scope[declaration.name] = subsystem
+        return
+    end
+
     class = find_class(program, declaration.type_name)
     class === nothing && throw(ModelError(
         "$(declaration.name): no class named $(repr(declaration.type_name))"))
@@ -251,6 +261,106 @@ function add_subsystem!(program::Program, instance::Instance,
 end
 
 # ---------------------------------------------------------------------------
+# State machines
+# ---------------------------------------------------------------------------
+
+"""
+An automaton is sugar, and this is the sugar being removed.
+
+What comes out is a component like any other: a held state holding the active
+state, a held state holding the time the machine entered it, `timeInState` as
+an ordinary equation, one constant per state name, and a single sampled event
+whose body is a chain of `if`s -- the transitions leaving the active state,
+tested in the order they were written.
+
+Nothing else in the compiler knows that state machines exist.
+"""
+function build_automaton(program::Program, automaton::AutomatonDefinition,
+                         name::Symbol, modifiers::Dict{String, Any})
+    instance = Instance()
+
+    for declaration in automaton.declarations
+        add_symbol!(instance, declaration, get(modifiers, declaration.name, nothing))
+    end
+
+    for reserved in ("state", "entryTime", "timeInState")
+        haskey(instance.scope, reserved) && throw(ModelError(
+            "automaton $(automaton.name) declares $(repr(reserved)), which is the " *
+            "name of something the machine itself owns"))
+    end
+
+    # The active state, and when it was entered: both held, both moved only by
+    # a transition.
+    initial_index = findfirst(==(automaton.initial), automaton.states)
+    state = make_variable(:state, Float64(initial_index))
+    entry_time = make_variable(:entryTime, 0.0)
+    elapsed = make_variable(:timeInState, 0.0)
+    append!(instance.unknowns, [state, entry_time, elapsed])
+    append!(instance.equations, [D(state) ~ 0, D(entry_time) ~ 0, elapsed ~ t - entry_time])
+    instance.scope["state"] = state
+    instance.scope["entryTime"] = entry_time
+    instance.scope["timeInState"] = elapsed
+    push!(instance.discrete_names, "state")
+    push!(instance.discrete_names, "entryTime")
+
+    # Each state name is a constant, so a guard or an equation elsewhere can
+    # say `supervisor.state == supervisor.Running`.
+    for (index, state_name) in enumerate(automaton.states)
+        constant = make_parameter(Symbol(state_name), Float64(index))
+        push!(instance.parameters, constant)
+        instance.scope[state_name] = constant
+    end
+
+    body = transition_statements(automaton)
+    if !isempty(body)
+        affect = affect_equations(body, instance.scope)
+        push!(instance.discrete_events, constant_value(automaton.rate) => affect)
+    end
+
+    return System(instance.equations, t, instance.unknowns, instance.parameters;
+                  name, discrete_events = instance.discrete_events)
+end
+
+"""
+The body of the automaton's event: which state are we in, and which of its
+transitions fires?
+"""
+function transition_statements(automaton::AutomatonDefinition)
+    conditions = Expression[]
+    branches = Vector{Statement}[]
+
+    for (index, state_name) in enumerate(automaton.states)
+        outgoing = filter(transition -> transition.from == state_name,
+                          automaton.transitions)
+        isempty(outgoing) && continue
+        push!(conditions, BinaryOp("==", VariableRef("state"), NumberLiteral(index)))
+        push!(branches, Statement[guard_chain(automaton, outgoing)])
+    end
+
+    isempty(conditions) && return Statement[]
+    return Statement[IfStatement(conditions, branches, Statement[], automaton.line)]
+end
+
+"""
+The transitions leaving one state, in the order written.
+
+An `elseif` chain is exactly the rule: the first guard that holds is taken, and
+at most one transition happens per tick.
+"""
+function guard_chain(automaton::AutomatonDefinition, outgoing::Vector{Transition})
+    conditions = Expression[transition.guard for transition in outgoing]
+    branches = Vector{Statement}[]
+    for transition in outgoing
+        target = findfirst(==(transition.to), automaton.states)
+        push!(branches, vcat(
+            Statement[Assignment("state", NumberLiteral(Float64(target)), transition.line),
+                      Assignment("entryTime", VariableRef("time"), transition.line)],
+            transition.actions))
+    end
+    return IfStatement(conditions, branches, Statement[], automaton.line)
+end
+
+# ---------------------------------------------------------------------------
 # Equations
 # ---------------------------------------------------------------------------
 
@@ -269,11 +379,15 @@ end
 function add_equation!(instance::Instance, equation::WhenEquation)
     affect = affect_equations(equation.body, instance.scope)
     if equation.condition isa SampleCondition
-        start = constant_value(equation.condition.start)
+        start = constant_value(equation.condition.start, instance.scope)
         start == 0 || throw(ModelError(
             "sample(t0, Ts) with t0 = $start: only a first tick at 0 is " *
             "supported, because the period is what schedules the event"))
-        period = constant_value(equation.condition.interval)
+        period = constant_value(equation.condition.interval, instance.scope)
+        # MTK's periodic events begin at the *end* of the first period, and
+        # `sample(t0, Ts)` fires at t0 as well -- so the first tick is asked for
+        # by name, and the rest by period.
+        push!(instance.discrete_events, [start] => affect)
         push!(instance.discrete_events, period => affect)
     else
         push!(instance.continuous_events,
@@ -350,12 +464,23 @@ function apply_statement!(assigned, statement::IfStatement, scope)
         any(isequal(symbol), touched) || push!(touched, symbol)
     end
 
+    # The conditions are evaluated against the values as they were *before* this
+    # statement, and every variable it touches is updated together. Building a
+    # condition after some of them had already been reassigned would test the
+    # new value -- which reads as a plausible chain of ifs and means something
+    # entirely different.
+    conditions = [event_expression(condition, scope, assigned)
+                  for condition in statement.conditions]
+    updates = Pair{Any, Any}[]
     for symbol in touched
         value = lookup(otherwise, symbol, Pre(symbol))
         for index in length(branches):-1:1
-            condition = event_expression(statement.conditions[index], scope, assigned)
-            value = ifelse(condition, lookup(branches[index], symbol, Pre(symbol)), value)
+            value = ifelse(conditions[index],
+                           lookup(branches[index], symbol, Pre(symbol)), value)
         end
+        push!(updates, symbol => value)
+    end
+    for (symbol, value) in updates
         assign!(assigned, symbol, value)
     end
 end
@@ -451,7 +576,11 @@ function apply_operator(operator, left, right)
     operator == "<=" && return left <= right
     operator == ">" && return left > right
     operator == ">=" && return left >= right
-    operator == "==" && return left ~ right
+    # `==` is a *condition*, not an equation: the language writes an equation
+    # with `=`. Symbolics needs it built as a term, because `==` on numbers
+    # would answer at translation time rather than at simulation time.
+    operator == "==" && return Symbolics.term(==, left, right; type = Bool)
+    operator == "<>" && return Symbolics.term(!=, left, right; type = Bool)
     operator == "and" && return left & right
     operator == "or" && return left | right
     throw(ModelError("unknown operator $(repr(operator))"))
@@ -480,15 +609,29 @@ function resolve(name::AbstractString, scope)
     return value
 end
 
-"""A parameter value or a `start` attribute: a number, known before the run."""
-function constant_value(expression::Expression)
+"""
+A parameter value, a `start` attribute or a sampling period: a number, known
+before the run.
+
+A parameter may be named here, and its declared value is used. That makes the
+sampling period of `sample(0, Ts)` a *structural* property, fixed when the
+model is compiled -- changing `Ts` afterwards would not change how often the
+controller runs, because the event is scheduled from the period.
+"""
+function constant_value(expression::Expression, scope = nothing)
     expression isa NumberLiteral && return expression.value
     expression isa UnaryOp && expression.operator == "-" &&
-        return -constant_value(expression.operand)
+        return -constant_value(expression.operand, scope)
     if expression isa BinaryOp
-        left = constant_value(expression.left)
-        right = constant_value(expression.right)
-        return apply_operator(expression.operator, left, right)
+        return apply_operator(expression.operator,
+                              constant_value(expression.left, scope),
+                              constant_value(expression.right, scope))
     end
-    throw(ModelError("$(to_source(expression)) must be a number here"))
+    if expression isa VariableRef && scope !== nothing && haskey(scope, expression.name)
+        symbol = scope[expression.name]
+        value = Symbolics.getdefaultval(symbol, nothing)
+        value === nothing || return value
+    end
+    throw(ModelError("$(to_source(expression)) must be a number here; a parameter " *
+                     "may be named, and its declared value is used"))
 end

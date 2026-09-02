@@ -10,8 +10,8 @@ const KEYWORDS = Set([
     "model", "connector", "record", "automaton", "partial", "extends", "end",
     "equation", "initial", "parameter", "constant", "discrete", "flow",
     "potential", "connect", "when", "then", "if", "else", "elseif", "and", "or",
-    "not", "der", "pre", "reinit", "Real", "time", "sample", "state",
-    "transition", "contract", "assume", "guarantee",
+    "not", "der", "pre", "reinit", "Real", "time", "sample",
+    "contract", "assume", "guarantee",
 ])
 
 const VARIABILITY_PREFIXES = ["parameter", "constant", "discrete"]
@@ -382,6 +382,16 @@ function parse_automaton!(parser::Parser)
         parser.position += 1
     end
 
+    # An automaton declares what it watches and what it commands, so that its
+    # guards and actions have something to read and write. The enclosing model
+    # wires those to the plant, exactly as it would for any component.
+    declarations = Declaration[]
+    while !at(parser, "state")
+        current(parser).kind === :eof &&
+            error_at(parser, "unterminated automaton $(repr(name)): missing 'state'")
+        append!(declarations, parse_declaration!(parser))
+    end
+
     expect!(parser, "state")
     states = [identifier!(parser)]
     while accept!(parser, ",")
@@ -410,7 +420,8 @@ function parse_automaton!(parser::Parser)
             error_at(parser, "'end $closing' does not match 'automaton $name'")
     end
     expect!(parser, ";")
-    return AutomatonDefinition(name, rate, states, initial, transitions, description, line)
+    return AutomatonDefinition(name, rate, declarations, states, initial, transitions,
+                               description, line)
 end
 
 function parse_transition!(parser::Parser, states::Vector{String}, automaton::String)

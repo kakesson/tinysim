@@ -78,7 +78,7 @@ taking exactly {0, 1}, and **209 switches** -- the same count as Python.
 cross-check run in its own environment, exactly as the Python implementation
 already runs it. The contract monitor itself is ours in both languages.
 
-### Three traps, found by probing rather than by debugging later
+### Traps, found by probing rather than by debugging later
 
 1. **Symbols that appear only in an affect must be declared on the `System`.**
    MTK infers unknowns and parameters from the *equations*; a parameter used
@@ -97,6 +97,17 @@ already runs it. The contract monitor itself is ours in both languages.
 A fourth, smaller one: `@connector` and `@mtkmodel` moved to `SciCompDSL.jl` in
 MTK 11, so systems must be built programmatically -- which is what a compiler
 does anyway.
+
+Two more turned up while phase 2 was written, and are recorded here for the
+same reason:
+
+5. **`==` is a condition, not an equation.** Building it with `~` produces an
+   `Equation`, which cannot go inside `ifelse`; it has to be built as a term,
+   `Symbolics.term(==, a, b; type = Bool)`, or it answers at translation time
+   instead of at simulation time.
+6. **MTK's periodic events begin at the end of the first period.**
+   `sample(0, Ts)` fires at 0 as well, so the first tick is asked for by name --
+   `[t0] => affect` -- and the rest by period.
 
 ## 4. What each report section becomes
 
@@ -147,7 +158,7 @@ three ways.
 | --- | --- | --- |
 | 0 | scaffold **(done)** | `julia/TinySim` pinning MTK 11.40, a test suite over the golden files, CI for both languages, `tools/export_golden.py` |
 | 1 | lexer, parser, AST | mechanical; the grammar does not change |
-| 2 | translator to MTK | connectors, components, `extends`, modifiers, equations, `start`, `when`/`reinit` with `Pre`, discrete variables as held states |
+| 2 | translator to MTK **(done)** | connectors, components, `extends`, modifiers, equations, `start`, `when`/`reinit` with `Pre`, discrete variables as held states |
 | 3 | compile and inspect | `expand_connections`, `mtkcompile`, `observed`, `TearingState`; the data the reports need, extracted into our own structures |
 | 4 | simulation | `ODEProblem`, solvers, the three event policies, fixed and variable step |
 | 5 | contracts | monitor port, `SignalTemporalLogic.jl` as a dependency |

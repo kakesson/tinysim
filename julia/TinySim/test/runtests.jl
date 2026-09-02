@@ -14,6 +14,7 @@ const EXPECTED = ["bouncing_ball", "dcmotor", "diode_circuit", "electrical",
 @testset "TinySim" begin
     include("parser_tests.jl")
     include("translate_tests.jl")
+    include("controller_tests.jl")
 
     @testset "the oracle covers every example" begin
         @test golden_names() == EXPECTED

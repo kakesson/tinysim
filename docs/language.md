@@ -317,8 +317,8 @@ A digital controller runs on a period, and `sample` says so:
   end;
 ```
 
-The instants `t0, t0 + Ts, t0 + 2Ts, ...` are *known in advance*, so they are
-scheduled rather than located: no crossing function, no root finding, and no
+The instants `t0, t0 + Ts, t0 + 2Ts, ...` -- the first one included -- are
+*known in advance*, so they are scheduled rather than located: no crossing function, no root finding, and no
 drift in the tick times. Several rates simply mean several `when`s, which is
 all multirate needs.
 
@@ -332,16 +332,32 @@ Supervisory logic -- off, starting, running, fault -- is written as an
 `automaton`:
 
 ```modelica
-automaton Supervisor sampled at 0.01
+automaton SupervisorLogic sampled at 0.01
+  parameter Real wTarget = 50, uStart = 5, startTimeout = 2;
+  Real w                      "the speed it watches";
+  discrete Real command(start = 0) "the command it issues";
+  discrete Real request(start = 0) "what the operator asked for";
   state Off, Starting, Running, Fault;
   initial Off;
 transition
-  Off      -> Starting  when startCommand > 0.5  then u := uStart; end;
+  Off      -> Starting  when request > 0.5      then command := uStart; end;
   Starting -> Running   when w > wTarget;
   Starting -> Fault     when timeInState > startTimeout;
-  Running  -> Fault     when abs(i) > iMax;
-  Fault    -> Off       when resetCommand > 0.5  then u := 0; end;
-end Supervisor;
+  Fault    -> Off       when request < 0.5      then command := 0; end;
+end SupervisorLogic;
+```
+
+An automaton is a class, and it is used like any other component -- what it
+watches and what it commands are wired up with ordinary equations:
+
+```modelica
+model Machine
+  SupervisorLogic supervisor(wTarget = 60);
+  Real w(start = 0);
+equation
+  supervisor.w = w;                                  // the measurement in
+  der(w) = -0.5 * w + supervisor.command;            // the command out
+end Machine;
 ```
 
 * An automaton always carries a **rate**. At each tick the transitions leaving
@@ -351,8 +367,9 @@ end Supervisor;
   under the rules of a `when` body.
 * `timeInState` is the time since the last transition, and may be used in a
   guard or in an equation.
-* The active state is readable anywhere as `Supervisor.state ==
-  Supervisor.Running`; state names are constants.
+* The active state is readable as `supervisor.state == supervisor.Running`:
+  the state names are constants of the instance, so nothing new is needed to
+  refer to them.
 
 The rate is required rather than optional. Testing guards *while in the state*
 is what makes a transition fire when the machine arrives at a state whose guard
@@ -362,7 +379,7 @@ bug is invisible in a plot.
 Behaviour that differs between modes is written with an `if`-expression:
 
 ```modelica
-  der(x) = if Supervisor.state == Supervisor.Running then -x + u else 0;
+  der(x) = if supervisor.state == supervisor.Running then -x + u else 0;
 ```
 
 Hierarchy, composite states, synchronisation, reset semantics and history are
@@ -460,6 +477,7 @@ comp_ref       = IDENT { "." IDENT } ;
 record_def     = "record" IDENT [ STRING ] { var_decl } "end" [ IDENT ] ";" ;
 
 automaton_def  = "automaton" IDENT "sampled" "at" expr [ STRING ]
+                 { var_decl }
                  "state" IDENT { "," IDENT } ";"
                  "initial" IDENT ";"
                  "transition" { transition }
